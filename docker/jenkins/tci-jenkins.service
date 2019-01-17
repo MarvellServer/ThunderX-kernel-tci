@@ -1,0 +1,20 @@
+# /etc/systemd/system/tci-jenkins.service
+
+[Unit]
+Description=tci-jenkins
+After=docker.service
+Requires=docker.service
+
+[Service]
+Environment=SYSTEMD_LOG_LEVEL=debug
+RestartSec=30s
+Restart=always
+
+ExecStartPre=-/bin/sh -c '/usr/bin/docker rm -f %n &>/dev/null'
+
+ExecStart=/var/lib/tci/start-tci-jenkins.sh %n
+
+ExecStop=/usr/bin/docker stop %n
+
+[Install]
+WantedBy=multi-user.target

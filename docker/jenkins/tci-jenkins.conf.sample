@@ -1,0 +1,5 @@
+# /var/lib/tci/tci-jenkins.conf
+
+TCI_RELAY=
+TCI_TICKET=
+TCI_TFTP=
