@@ -89,20 +89,6 @@ docker_from_ubuntu() {
 	esac
 }
 
-run_cmd() {
-	local cmd="${*}"
-
-	if [[ -n ${cmd_trace} ]]; then
-		echo "==> ${cmd}"
-	fi
-
-	if [[ -n "${dry_run}" ]]; then
-		true
-	else
-		eval "${cmd}"
-	fi
-}
-
 show_tag () {
 	echo "${DOCKER_TAG}"
 }
@@ -113,23 +99,23 @@ if [[ ${TCI_BUILDER} && "${project_name}" == "builder"  ]]; then
 fi
 
 PROJECT_TOP="${DOCKER_TOP}/${project_name}"
-ARCH_TAG=${ARCH_TAG:="$(arch_tag)"}
-DOCKER_TAG=${DOCKER_TAG:="${DOCKER_NAME}:${VERSION}${ARCH_TAG}"}
+ARCH_TAG=${ARCH_TAG:-"$(arch_tag)"}
+DOCKER_TAG=${DOCKER_TAG:-"${DOCKER_NAME}:${VERSION}${ARCH_TAG}"}
 
-DOCKER_FILE=${DOCKER_FILE:="${PROJECT_TOP}/Dockerfile.${project_name}"}
-SERVICE_FILE=${SERVICE_FILE:="${PROJECT_TOP}/tci-${project_name}.service"}
+DOCKER_FILE=${DOCKER_FILE:-"${PROJECT_TOP}/Dockerfile.${project_name}"}
+SERVICE_FILE=${SERVICE_FILE:-"${PROJECT_TOP}/tci-${project_name}.service"}
 
 case "${project_from}" in
 alpine)
-	DOCKER_FROM=${DOCKER_FROM:="$(docker_from_alpine)"} ;;
+	DOCKER_FROM=${DOCKER_FROM:-"$(docker_from_alpine)"} ;;
 debian)
-	DOCKER_FROM=${DOCKER_FROM:="$(docker_from_debian)"} ;;
+	DOCKER_FROM=${DOCKER_FROM:-"$(docker_from_debian)"} ;;
 jenkins)
-	DOCKER_FROM=${DOCKER_FROM:="$(docker_from_jenkins)"} ;;
+	DOCKER_FROM=${DOCKER_FROM:-"$(docker_from_jenkins)"} ;;
 openjdk)
-	DOCKER_FROM=${DOCKER_FROM:="$(docker_from_openjdk)"} ;;
+	DOCKER_FROM=${DOCKER_FROM:-"$(docker_from_openjdk)"} ;;
 ubuntu)
-	DOCKER_FROM=${DOCKER_FROM:="$(docker_from_ubuntu)"} ;;
+	DOCKER_FROM=${DOCKER_FROM:-"$(docker_from_ubuntu)"} ;;
 *)
 	echo "${name}: ERROR: Bad project_from: '${project_from}'" >&2
 	exit 1
@@ -142,7 +128,6 @@ usage () {
 	echo "${name} - ${project_description}" >&2
 	echo "Usage: ${name} [flags]" >&2
 	echo "Option flags:" >&2
-	echo "  -d --dry-run  - Do not run build commands." >&2
 	echo "  -h --help     - Show this help and exit." >&2
 	echo "  -p --purge    - Remove existing docker image and rebuild." >&2
 	echo "  -r --rebuild  - Rebuild existing docker image." >&2
@@ -164,8 +149,8 @@ usage () {
 	eval "${old_xtrace}"
 }
 
-short_opts="dhprtv"
-long_opts="dry-run,help,purge,rebuild,tag,verbose,install,start,enable"
+short_opts="hprtv"
+long_opts="help,purge,rebuild,tag,verbose,install,start,enable"
 
 opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
 
@@ -178,10 +163,6 @@ eval set -- "${opts}"
 
 while true ; do
 	case "${1}" in
-	-d | --dry-run)
-		dry_run=1
-		shift
-		;;
 	-h | --help)
 		usage=1
 		shift
@@ -240,6 +221,11 @@ if [[ -n "${usage}" ]]; then
 	exit 0
 fi
 
+if ! test -x "$(command -v docker)"; then
+	echo "${name}: ERROR: Please install docker." >&2
+	exit 1
+fi
+
 if [[ -n "${tag}" ]]; then
 	show_tag
 	exit 0
@@ -265,7 +251,7 @@ do_build=1
 
 if [[ ${purge} ]] && docker inspect --type image ${DOCKER_TAG} &>/dev/null; then
 	echo "Removing docker image: ${DOCKER_TAG}" >&2
-	run_cmd "docker rmi --force ${DOCKER_TAG}"
+	docker rmi --force ${DOCKER_TAG}
 elif [[ ! ${rebuild} ]] && docker inspect --type image ${DOCKER_TAG} &>/dev/null; then
 	echo "Docker image exists: ${DOCKER_TAG}" >&2
 	show_tag
@@ -281,7 +267,7 @@ if [[ ${do_build} ]]; then
 
 	echo "${name}: extra_build_args='${extra_build_args}'" >&2
 
-	run_cmd "docker build \
+	docker build \
 		--file "${DOCKER_FILE}" \
 		--build-arg DOCKER_FROM=${DOCKER_FROM} \
 		--build-arg http_proxy=${http_proxy} \
@@ -289,27 +275,27 @@ if [[ ${do_build} ]]; then
 		--tag ${DOCKER_TAG} \
 		--network=host \
 		${extra_build_args} \
-		."
+		.
 fi
 
 if [[ ${install} ]]; then
-	install_extra
+	host_install_extra
 fi
 
 if [[ -f ${SERVICE_FILE} ]]; then
 	service_name="$(basename ${SERVICE_FILE})"
 	
 	if [[ ${install} ]]; then
-		run_cmd "sudo cp -f ${SERVICE_FILE} /etc/systemd/system/"
+		sudo cp -f ${SERVICE_FILE} /etc/systemd/system/
 	fi
 
 	if [[ ${enable} ]]; then
-		run_cmd "sudo systemctl reenable ${service_name}"
+		sudo systemctl reenable ${service_name}
 	fi
 
 	if [[ ${start} ]]; then
-		run_cmd "sudo systemctl daemon-reload"
-		run_cmd "sudo systemctl restart ${service_name}"
+		sudo systemctl daemon-reload
+		sudo systemctl restart ${service_name}
 		docker ps
 		systemctl --no-pager status ${service_name}
 	fi

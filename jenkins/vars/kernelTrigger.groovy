@@ -25,6 +25,9 @@ def call(body) {
             booleanParam(name: 'FORCE_BUILD',
                 defaultValue: false,
                 description: 'Force build and test of kernel.')
+            string(name: 'PIPELINE_BRANCH',
+                defaultValue: 'master',
+                description: 'Branch to use for fetching the pipeline jobs')
         }
 
         options {
@@ -99,6 +102,7 @@ fi
                             string(name: 'KERNEL_GIT_BRANCH', value: args.git_branch),
                             string(name: 'KERNEL_GIT_URL', value: args.git_url),
                             booleanParam(name: 'USE_KERNEL_CACHE', value: false),
+                            string(name: 'PIPELINE_BRANCH', value: params.PIPELINE_BRANCH)
                         ],
                     )
                 }

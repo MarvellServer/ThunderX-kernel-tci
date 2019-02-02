@@ -6,7 +6,7 @@ script {
 }
 
 kernelTrigger {
-    git_url = 'https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git'
+    git_url = 'https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git'
     git_branch = 'master'
     cron_spec = '@hourly'
 }

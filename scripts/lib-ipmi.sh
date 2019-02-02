@@ -6,7 +6,8 @@ ipmi_get_power_status() {
 	local ipmi_args="${1}"
 
 	#echo "*** ipmi_args = @${ipmi_args} @" >&2
-	local msg="$(ipmitool ${ipmi_args} power status)"
+	local msg
+	msg="$(ipmitool ${ipmi_args} power status)"
 
 	case ${msg: -3} in
 	' on')
@@ -25,12 +26,14 @@ ipmi_get_power_status() {
 ipmi_wait_power_state() {
 	local ipmi_args="${1}"
 	local state="${2}"
+	local timeout_sec=${3}
+	timeout_sec=${timeout_sec:-60}
 
 	#echo "*** ipmi_args = @${ipmi_args} @" >&2
 
 	while [[ $(ipmi_get_power_status "${ipmi_args}") != "${state}" ]]; do
 		let count=count+5
-		if [[ count -gt 60 ]]; then
+		if [[ count -gt ${timeout_sec} ]]; then
 			echo "${name}: ipmi_wait_power_state '${state}' ${ipmi_args} failed."
 			exit -1
 		fi
@@ -41,11 +44,12 @@ ipmi_wait_power_state() {
 ipmi_set_power_state() {
 	local ipmi_args="${1}"
 	local state="${2}"
+	local timeout_sec=${3}
 
 	#echo "*** ipmi_args = @${ipmi_args} @" >&2
 
 	ipmitool ${ipmi_args} power ${state}
-	ipmi_wait_power_state "${ipmi_args}" "${state}"
+	ipmi_wait_power_state "${ipmi_args}" "${state}" ${timeout_sec}
 }
 
 ipmi_power_on() {

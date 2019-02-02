@@ -16,6 +16,8 @@ boolean commit(String cache_path, String tag) {
 
 void put(String cache_path, String name, String item, String stamp_info) {
 
+// FIXME: Need to avoid concurrent access by multiple runing jobs.
+
     sh(script: """#!/bin/bash -ex
     export PS4='+\$(basename \${BASH_SOURCE}):\${LINENO}:'
 

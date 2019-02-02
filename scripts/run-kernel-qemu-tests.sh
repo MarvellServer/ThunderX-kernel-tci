@@ -4,10 +4,10 @@ set -e
 
 name="$(basename ${0})"
 
-SCRIPTS_TOP=${SCRIPTS_TOP:="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}
+SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}
 
-source ${SCRIPTS_TOP}/common.sh
-source ${SCRIPTS_TOP}/relay.sh
+source ${SCRIPTS_TOP}/lib-common.sh
+source ${SCRIPTS_TOP}/lib-relay.sh
 
 usage() {
 	local old_xtrace="$(shopt -po xtrace || :)"
@@ -22,22 +22,20 @@ usage() {
 	echo "  -i --initrd            - Initrd image. Default: '${initrd}'." >&2
 	echo "  -k --kernel            - Kernel image. Default: '${kernel}'." >&2
 	echo "  -o --out-file          - stdout, stderr redirection file. Default: '${out_file}'." >&2
-# TODO	echo "  -r --disk-image        - Raw disk image.  Alternative to --initrd. Default: '${disk_image}'." >&2
 	echo "  -s --systemd-debug     - Run systemd with debug options. Default: '${systemd_debug}'." >&2
-	echo "  -t --qemu-tap          - EXPERIMENTAL -- Use QEMU tap networking. Default: '${qemu_tap}'." >&2
+	echo "  -t --tests-dir         - Tests directory. Default: '${tests_dir}'." >&2
 	echo "  -v --verbose           - Verbose execution." >&2
-	echo "  --hda                  - QEMU IDE hard disk image hda. Default: '${hda}'." >&2
-	echo "  --hdb                  - QEMU IDE hard disk image hdb. Default: '${hdb}'." >&2
-	echo "  --relay-triple         - File name or 'server:port:token'. Default: '${relay_triple}'." >&2
+	echo "  --relay-server         - Relay server host[:port]. Default: '${relay_server}'." >&2
 	echo "  --result-file          - Result file. Default: '${result_file}'." >&2
 	echo "  --ssh-login-key        - SSH login private key file. Default: '${ssh_login_key}'." >&2
+	#echo "  --qemu-tap             - EXPERIMENTAL -- Use QEMU tap networking. Default: '${qemu_tap}'." >&2
 	eval "${old_xtrace}"
 }
 
-short_opts="a:c:d:f:hi:k:o:r:stv"
+short_opts="a:c:d:f:hi:k:o:r:st:v"
 long_opts="arch:,kernel-cmd:,ether-mac:,hostfwd-offset:,help,initrd:,\
-kernel:,out-file:,disk-image:,systemd-debug,qemu-tap,verbose,\
-hda:,hdb:,relay-triple:,result-file:,ssh-login-key:"
+kernel:,out-file:,systemd-debug,tests-dir:,verbose,\
+relay-server:,result-file:,ssh-login-key:,qemu-tap"
 
 opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
 
@@ -78,33 +76,21 @@ while true ; do
 		out_file="${2}"
 		shift 2
 		;;
-	-r | --disk-image)
-		disk_image="${2}"
-		shift 2
-		;;
 	-s | --systemd-debug)
 		systemd_debug=1
 		shift
 		;;
-	-t | --qemu-tap)
-		qemu_tap=1
-		shift
+	-t | --tests-dir)
+		tests_dir="${2}"
+		shift 2
 		;;
 	-v | --verbose)
 		set -x
 		verbose=1
 		shift
 		;;
-	--hda)
-		hda="${2}"
-		shift 2
-		;;
-	--hdb)
-		hdb="${2}"
-		shift 2
-		;;
-	--relay-triple)
-		relay_triple="${2}"
+	--relay-server)
+		relay_server="${2}"
 		shift 2
 		;;
 	--result-file)
@@ -114,6 +100,14 @@ while true ; do
 	--ssh-login-key)
 		ssh_login_key="${2}"
 		shift 2
+		;;
+	--test-script)
+		test_script="${2}"
+		shift 2
+		;;
+	--qemu-tap)
+		qemu_tap=1
+		shift
 		;;
 	--)
 		shift
@@ -126,47 +120,14 @@ while true ; do
 	esac
 done
 
-cmd_trace=1
 host_arch=$(get_arch "$(uname -m)")
+target_arch=${target_arch:-"${host_arch}"}
+hostfwd_offset=${hostfwd_offset:-"20000"}
+out_file=${out_file:-"qemu.out"}
+result_file=${result_file:-"qemu-result.txt"}
 
-if [[ -z "${target_arch}" ]]; then
-	target_arch="${host_arch}"
-fi
-
-if [[ -z "${hostfwd_offset}" ]]; then
-	hostfwd_offset="20000"
-fi
-
-if [[ -z "${out_file}" ]]; then
-	out_file="qemu.out"
-fi
-
-if [[ -z "${result_file}" ]]; then
-	result_file="qemu-result.txt"
-fi
-
-if [[ -f "${relay_triple}" ]]; then
-	relay_triple=$(cat ${relay_triple})
-	echo "${name}: INFO: Relay triple: '${relay_triple}'" >&2
-fi
-
-if [[ ! ${relay_token} ]]; then
-	relay_triple="$(relay_make_random_triple ${relay_server} ${relay_port})"
-fi
-
-relay_split_triple ${relay_triple} relay_server relay_port relay_token
-
-relay_addr=$(find_addr /etc/hosts ${relay_server})
-
-old_xtrace="$(shopt -po xtrace || :)"
-set +o xtrace
-echo "${name}: INFO: Relay triple: '${relay_triple}'" >&2
-echo "triple: ${relay_triple}"
-echo " server: ${relay_server}"
-echo " port:   ${relay_port}"
-echo " token:  ${relay_token}"
-echo " addr:   ${relay_addr}"
-eval "${old_xtrace}"
+relay_triple=$(relay_init_triple ${relay_server})
+relay_token=$(relay_triple_to_token ${relay_triple})
 
 if [[ -n "${usage}" ]]; then
 	usage
@@ -186,8 +147,8 @@ fi
 
 check_file "${kernel}"
 
-if [[ ! ${initrd} && ! ${disk_image} ]]; then
-	echo "${name}: ERROR: Must provide --initrd or --disk-image option." >&2
+if [[ ! ${initrd} ]]; then
+	echo "${name}: ERROR: Must provide --initrd option." >&2
 	usage
 	exit 1
 fi
@@ -204,23 +165,16 @@ fi
 
 check_file "${ssh_login_key}"
 
-if [[ ${disk_image} ]]; then
-	check_file "${disk_image}"
-	disk_image_root="/dev/vda"
+if [[ ! ${tests_dir} ]]; then
+	echo "${name}: ERROR: Must provide --tests-dir option." >&2
+	usage
+	exit 1
 fi
 
-start_extra_args=''
+check_directory "${tests_dir}"
 
 if [[ ${systemd_debug} ]]; then
-	start_extra_args+=' --systemd-debug'
-fi
-
-if [[ ${hda} ]]; then
-	start_extra_args+=" --hda=${hda}"
-fi
-
-if [[ ${hdb} ]]; then
-	start_extra_args+=" --hdb=${hdb}"
+	qemu_extra_args+=' --systemd-debug'
 fi
 
 on_exit() {
@@ -242,15 +196,19 @@ on_exit() {
 
 	rm -f ${test_kernel}
 
+	if [[ -d ${tmp_dir} ]]; then
+		sudo rm -rf ${tmp_dir}
+	fi
+
 	echo "${name}: ${result}" >&2
 }
 
 start_qemu_user_networking() {
 	ssh_fwd=$(( ${hostfwd_offset} + 22 ))
-	
+
 	echo "${name}: ssh_fwd port = ${ssh_fwd}" >&2
 
-	${SCRIPTS_TOP}/start-qemu.sh \
+	${sudo} ${SCRIPTS_TOP}/start-qemu.sh \
 		--arch="${target_arch}" \
 		--kernel-cmd="${kernel_cmd}" \
 		--hostfwd-offset="${hostfwd_offset}" \
@@ -259,7 +217,7 @@ start_qemu_user_networking() {
 		--out-file="${out_file}" \
 		--disk-image="${disk_image}" \
 		--verbose \
-		${start_extra_args} \
+		${qemu_extra_args} \
 		</dev/null &> "${out_file}.start" &
 
 	qemu_pid="${!}"
@@ -277,7 +235,8 @@ start_qemu_tap_networking() {
 	echo "${name}: my_addr = '${my_addr}'" >&2
 	echo "${name}: my_net  = '${my_net}'" >&2
 
-	local bridge_addr="$(ip address show dev ${host_eth} \
+	local bridge_addr
+	bridge_addr="$(ip address show dev ${host_eth} \
 		| egrep -o 'inet .*' | cut -f 2 -d ' ')"
 
 	echo "${name}: bridge_addr='${bridge_addr}'" >&2
@@ -327,7 +286,7 @@ EOF
 
 	${SCRIPTS_TOP}/start-qemu.sh \
 		--ether-mac=${mac}
-		${start_extra_args} \
+		${qemu_extra_args} \
 		--arch=${target_arch} \
 		--install-dir=${kernel_install_dir} \
 		--qemu-tap \
@@ -347,18 +306,27 @@ trap "on_exit 'Done, failed.'" EXIT
 
 ${SCRIPTS_TOP}/set-relay-triple.sh \
 	--kernel=${kernel} \
-	--relay-triple="${relay_addr}:${relay_port}:${relay_token}" \
+	--relay-triple="${relay_triple}" \
 	--verbose
 
 test_kernel=${kernel}.${relay_token}
 
 rm -f ${out_file} ${out_file}.start ${result_file}
 
+tmp_dir="$(mktemp --tmpdir --directory ${name}.XXXX)"
+
 echo '--------' >> ${result_file}
 echo 'printenv' >> ${result_file}
 echo '--------' >> ${result_file}
 printenv        >> ${result_file}
 echo '--------' >> ${result_file}
+
+qemu_hda=${tmp_dir}/qemu-hda
+qemu-img create -f qcow2 ${qemu_hda} 8G
+
+qemu_hdb=${tmp_dir}/qemu-hdb
+qemu-img create -f qcow2 ${qemu_hdb} 8G
+
 
 SECONDS=0
 start_qemu_user_networking
@@ -377,23 +345,32 @@ if ! kill -0 ${qemu_pid} &> /dev/null; then
 	exit 1
 fi
 
-relay_get "120" ${relay_triple} remote_addr
+relay_get "180" ${relay_triple} remote_addr
 
-user_remote_host="-p ${ssh_fwd} root@localhost"
+user_remote_host="root@localhost"
+user_remote_ssh_opts="-o Port=${ssh_fwd}"
+
 tap_remote_host="root@${remote_addr}"
 
 remote_host=${user_remote_host}
+remote_ssh_opts=${user_remote_ssh_opts}
 
 ssh_no_check="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
-ssh ${ssh_no_check} -i ${ssh_login_key} ${remote_host} \
-	'find /lib/modules -type f | egrep nicvf.ko'
+${SCRIPTS_TOP}/test-runner.sh \
+	--arch=arm64 \
+	--tests-dir=${tests_dir} \
+	--verbose \
+	--run \
+	--machine-type='qemu' \
+	--ssh-host=${remote_host} \
+	--ssh-opts="${ssh_no_check} -i ${ssh_login_key} ${remote_ssh_opts}"
 
-ssh ${ssh_no_check} -i ${ssh_login_key} ${remote_host} \
+ssh ${ssh_no_check} -i ${ssh_login_key} ${remote_ssh_opts} ${remote_host} \
 	'poweroff &'
 
 echo "${name}: Waiting for QEMU exit..." >&2
-wait ${qemu_pid}
+wait_pid ${qemu_pid} 180
 
 trap - EXIT
 on_exit 'Done, success.' ''

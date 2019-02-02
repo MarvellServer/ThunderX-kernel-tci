@@ -4,9 +4,9 @@ set -e
 
 name="$(basename ${0})"
 
-SCRIPTS_TOP=${SCRIPTS_TOP:="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}
+SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}
 
-source ${SCRIPTS_TOP}/common.sh
+source ${SCRIPTS_TOP}/lib-common.sh
 
 usage() {
 	local old_xtrace="$(shopt -po xtrace || :)"
@@ -14,8 +14,8 @@ usage() {
 	echo "${name} - Sets kernel config options from <spec-file>." >&2
 	echo "Usage: ${name} [flags] <spec-file> <kernel-config>" >&2
 	echo "Option flags:" >&2
-	echo "  -h --help    - Show this help and exit." >&2
-	echo "  -v --verbose - Verbose execution." >&2
+	echo "  -h --help          - Show this help and exit." >&2
+	echo "  -v --verbose       - Verbose execution." >&2
 	echo "Spec File Info:" >&2
 	echo "  The spec file contains one kernel option per line.  Lines beginning with '#' (regex '^#') are comments." >&2
 	eval "${old_xtrace}"

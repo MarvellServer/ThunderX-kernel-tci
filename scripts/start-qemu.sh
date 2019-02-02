@@ -4,9 +4,9 @@ set -e
 
 name="$(basename ${0})"
 
-SCRIPTS_TOP=${SCRIPTS_TOP:="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}
+SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}
 
-source ${SCRIPTS_TOP}/common.sh
+source ${SCRIPTS_TOP}/lib-common.sh
 
 usage() {
 	local old_xtrace="$(shopt -po xtrace || :)"
@@ -119,23 +119,14 @@ while true ; do
 	esac
 done
 
-cmd_trace=1
 host_arch=$(get_arch "$(uname -m)")
+target_arch=${target_arch:-"${host_arch}"}
+hostfwd_offset=${hostfwd_offset:-"20000"}
+ether_mac=${ether_mac:-"01:02:03:00:00:01"}
 
 if [[ ${systemd_debug} ]]; then
+	# FIXME: need to run set-systemd-debug.sh???
 	kernel_cmd+=" systemd.log_level=debug systemd.log_target=console systemd.journald.forward_to_console=1"
-fi
-
-if [[ -z "${target_arch}" ]]; then
-	target_arch="${host_arch}"
-fi
-
-if [[ -z "${hostfwd_offset}" ]]; then
-	hostfwd_offset="20000"
-fi
-
-if [[ -z "${ether_mac}" ]]; then
-	ether_mac="01:02:03:00:00:01"
 fi
 
 if [[ -n "${usage}" ]]; then

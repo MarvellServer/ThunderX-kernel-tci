@@ -4,10 +4,10 @@ set -e
 
 name="$(basename ${0})"
 
-SCRIPTS_TOP=${SCRIPTS_TOP:="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}
+SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}
 
-source ${SCRIPTS_TOP}/common.sh
-source ${SCRIPTS_TOP}/phone-home.sh
+source ${SCRIPTS_TOP}/lib-common.sh
+source ${SCRIPTS_TOP}/lib-relay.sh
 
 usage() {
 	local old_xtrace="$(shopt -po xtrace || :)"
@@ -110,11 +110,10 @@ while true ; do
 	esac
 done
 
-cmd_trace=1
 host_arch=$(get_arch "$(uname -m)")
 
-target_arch=${target_arch:="${host_arch}"}
-hostfwd_offset=${hostfwd_offset:="20000"}
+target_arch=${target_arch:-"${host_arch}"}
+hostfwd_offset=${hostfwd_offset:-"20000"}
 
 if [[ -n "${usage}" ]]; then
 	usage
@@ -214,7 +213,8 @@ make_kickstart_img() {
 	ks_img="$(mktemp --tmpdir tci-ks-img.XXXX)"
 	ks_mnt="$(mktemp --tmpdir --directory tci-ks-mnt.XXXX)"
 
-	local ks_file="${ks_mnt}/$(basename ${kickstart})"
+	local ks_file
+	ks_file="${ks_mnt}/$(basename ${kickstart})"
 
 	dd if=/dev/zero of=${ks_img} bs=1M count=1
 	mkfs.vfat ${ks_img}
@@ -287,7 +287,7 @@ if ! kill -0 ${qemu_pid} &> /dev/null; then
 fi
 
 echo "${name}: Waiting for QEMU exit..." >&2
-wait ${qemu_pid}
+wait_pid ${qemu_pid} 180
 qemu_pid=''
 
 echo "${name}: Boot time: $(sec_to_min ${SECONDS}) min" >&2

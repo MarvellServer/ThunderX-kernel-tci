@@ -90,6 +90,13 @@ For more info see
 [Adding new global credentials](https://jenkins.io/doc/book/using/using-credentials/#adding-new-global-credentials)
 in the Jenkins Documentation.
 
+##### Create TFTP server Environment Variables
+
+* Navigate to ${JENKINS_URL}/configure.
+* Under `Global properties` select `Environment variables`.
+* Add variables named `TCI_RELAY_SERVER` and `TCI_TFTP_SERVER` with values
+that corespond to the DNS names or IP addresses of the servers for your site.
+
 ### Check service status:
 
 ```sh

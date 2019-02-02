@@ -3,17 +3,17 @@
 set -e
 
 name="$(basename $0)"
-DOCKER_TOP=${DOCKER_TOP:="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"}
+DOCKER_TOP=${DOCKER_TOP:-"$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"}
 
 project_name="jenkins"
 project_from="openjdk"
 project_description="Builds a docker image that contains Jenkins for ThunderX-CI."
 
 PROJECT_TOP="${DOCKER_TOP}/${project_name}"
-VERSION=${VERSION:="1"}
-DOCKER_NAME=${DOCKER_NAME:="tci-jenkins"}
+VERSION=${VERSION:-"1"}
+DOCKER_NAME=${DOCKER_NAME:-"tci-jenkins"}
 
-JENKINS_USER=${JENKINS_USER:='tci-jenkins'}
+JENKINS_USER=${JENKINS_USER:-'tci-jenkins'}
 
 if ! getent passwd ${JENKINS_USER} &> /dev/null; then
 	echo "${name}: WARNING: User '${JENKINS_USER}' not found." >&2
@@ -32,10 +32,8 @@ docker_build_setup() {
 	true
 }
 
-install_extra() {
-	run_cmd "sudo mkdir -p /var/lib/tci/"
-	run_cmd "sudo cp -f ${PROJECT_TOP}/start-tci-jenkins.sh /var/lib/tci/"
-	run_cmd "sudo cp -f ${PROJECT_TOP}/tci-jenkins.conf.sample /var/lib/tci/"
+host_install_extra() {
+	true
 }
 
 source ${DOCKER_TOP}/build-common.sh

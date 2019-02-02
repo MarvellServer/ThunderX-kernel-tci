@@ -4,7 +4,7 @@ set -e
 
 name="$(basename ${0})"
 
-DOCKER_TOP=${DOCKER_TOP:="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}
+DOCKER_TOP=${DOCKER_TOP:-"$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}
 
 if [[ -n "${JENKINS_URL}" ]]; then
 	export PS4='+$(basename ${BASH_SOURCE}):${LINENO}:'

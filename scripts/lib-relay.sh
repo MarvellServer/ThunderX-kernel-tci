@@ -23,14 +23,18 @@ relay_verify_triple() {
 	fi
 }
 
+relay_random_token() {
+	echo "$(cat /proc/sys/kernel/random/uuid)"
+}
+
 relay_make_random_triple() {
 	local server=${1}
 	local port=${2}
 
-	: ${server:=${TCI_RELAY_SERVER}}
-	: ${port:=${TCI_RELAY_PORT}}
+	server=${server:-${TCI_RELAY_SERVER}}
+	port=${port:-${TCI_RELAY_PORT}}
 
-	echo "${server}:${port}:$(cat /proc/sys/kernel/random/uuid)"
+	echo "${server}:${port}:$(relay_random_token)"
 }
 
 relay_triple_to_server() {
@@ -56,30 +60,69 @@ relay_triple_to_token() {
 
 relay_split_triple() {
 	local triple=${1}
-	local -n _ph1_server=${2}
-	local -n _ph1_port=${3}
-	local -n _ph1_token=${4}
+	local -n _relay_split_triple__server=${2}
+	local -n _relay_split_triple__port=${3}
+	local -n _relay_split_triple__token=${4}
 
 	relay_verify_triple ${triple}
 
-	_ph1_server="$(echo ${triple} | cut -d ':' -f 1)"
-	_ph1_port="$(echo ${triple} | cut -d ':' -f 2)"
-	_ph1_token="$(echo ${triple} | cut -d ':' -f 3)"
+	_relay_split_triple__server="$(echo ${triple} | cut -d ':' -f 1)"
+	_relay_split_triple__port="$(echo ${triple} | cut -d ':' -f 2)"
+	_relay_split_triple__token="$(echo ${triple} | cut -d ':' -f 3)"
+}
+
+relay_resolve_triple() {
+	local triple=${1}
+	local server port token addr
+
+	relay_split_triple ${triple} server port token
+
+	find_addr addr "/etc/hosts" ${server}
+
+	echo "${addr}:${port}:${token}"
+}
+
+relay_init_triple() {
+	local server=${1}
+	local port addr token triple
+
+	if [[ ${server} ]]; then
+		port=$(relay_double_to_port ${server})
+		server=$(relay_double_to_server ${server})
+	else
+		port=${TCI_RELAY_PORT}
+		server=${TCI_RELAY_SERVER}
+	fi
+
+	find_addr addr "/etc/hosts" ${server}
+	token=$(relay_random_token)
+	triple="${addr}:${port}:${token}"
+
+	old_xtrace="$(shopt -po xtrace || :)"
+	set +o xtrace
+	echo "relay_triple:  ${triple}" >&2
+	echo " relay_server: ${server}" >&2
+	echo " relay_addr:   ${addr}" >&2
+	echo " relay_port:   ${port}" >&2
+	echo " relay_token:  ${token}" >&2
+	eval "${old_xtrace}"
+
+	echo "${triple}"
 }
 
 relay_split_reply() {
 	local reply=${1}
-	local -n _ph2_cmd=${2}
-	local -n _ph2_data=${3}
+	local -n _relay_split_reply__cmd=${2}
+	local -n _relay_split_reply__data=${3}
 
-	_ph2_cmd="$(echo ${reply} | cut -d ':' -f 1)"
-	_ph2_data="$(echo ${reply} | cut -d ':' -f 2)"
+	_relay_split_reply__cmd="$(echo ${reply} | cut -d ':' -f 1)"
+	_relay_split_reply__data="$(echo ${reply} | cut -d ':' -f 2)"
 }
 
 relay_get() {
 	local timeout=${1}
 	local triple=${2}
-	local -n _ph3_remote_addr=${3}
+	local -n _relay_get__remote_addr=${3}
 
 	local server
 	local port
@@ -120,17 +163,17 @@ relay_get() {
 
 	echo "${name}: reply_msg='${reply_msg}'" >&2
 	local cmd
-	relay_split_reply ${reply_msg} cmd _ph3_remote_addr
+	relay_split_reply ${reply_msg} cmd _relay_get__remote_addr
 
 	if [[ "${cmd}" != 'OK-' ]]; then
 		echo "${name}: relay_get failed: ${reply_msg}" >&2
-		_ph3_remote_addr="server-error"
+		_relay_get__remote_addr="server-error"
 		return 1
 	fi
 
-	echo "${name}: Received msg from '${_ph3_remote_addr}" >&2
-	echo "${name}: ${_ph3_remote_addr} boot time = ${boot_time} min" >&2
+	echo "${name}: Received msg from '${_relay_get__remote_addr}" >&2
+	echo "${name}: ${_relay_get__remote_addr} boot time = ${boot_time} min" >&2
 }
 
-TCI_RELAY_SERVER=${TCI_RELAY_SERVER:="tci-relay"}
-TCI_RELAY_PORT=${TCI_RELAY_PORT:="9600"}
+TCI_RELAY_SERVER=${TCI_RELAY_SERVER:-"tci-relay"}
+TCI_RELAY_PORT=${TCI_RELAY_PORT:-"9600"}

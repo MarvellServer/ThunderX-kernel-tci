@@ -4,9 +4,9 @@ set -e
 
 name="$(basename $0)"
 
-SCRIPTS_TOP=${SCRIPTS_TOP:="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}
+SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}
 
-source ${SCRIPTS_TOP}/common.sh
+source ${SCRIPTS_TOP}/lib-common.sh
 
 usage() {
 	local old_xtrace="$(shopt -po xtrace || :)"
@@ -105,13 +105,13 @@ while true ; do
 	esac
 done
 
-user=${user:="${JENKINS_USER}"}
-user=${user:='tci-jenkins'}
-uid=${uid:="5522"}
+user=${user:-"${JENKINS_USER}"}
+user=${user:-'tci-jenkins'}
+uid=${uid:-"5522"}
 
-home=${home:="/home/${user}"}
-group=${group:="${user}"}
-gid=${gid:="${uid}"}
+home=${home:-"/home/${user}"}
+group=${group:-"${user}"}
+gid=${gid:-"${uid}"}
 
 if [[ -n "${usage}" ]]; then
 	usage
@@ -130,6 +130,7 @@ run_checks() {
 
 	if getent passwd ${user} &> /dev/null; then
 		echo "${name}: ${check_msg}: user '${user}' exists." >&2
+		echo "${name}: ${check_msg}: => $(id ${user})" >&2
 		result=1
 	else
 		echo "${name}: INFO: user '${user}' does not exist." >&2

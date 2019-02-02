@@ -4,10 +4,10 @@ set -e
 
 name="$(basename ${0})"
 
-SCRIPTS_TOP=${SCRIPTS_TOP:="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}
+SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}
 
-source ${SCRIPTS_TOP}/common.sh
-source ${SCRIPTS_TOP}/relay.sh
+source ${SCRIPTS_TOP}/lib-common.sh
+source ${SCRIPTS_TOP}/lib-relay.sh
 
 usage () {
 	local old_xtrace="$(shopt -po xtrace || :)"
@@ -17,13 +17,14 @@ usage () {
 	echo "Option flags:" >&2
 	echo "  -h --help         - Show this help and exit." >&2
 	echo "  -k --kernel       - Kernel image. Default: '${kernel}'." >&2
+	echo "  -o --out-file     - Output file. Default: '${out_file}'." >&2
 	echo "  -t --relay-triple - tci-relay triple.  File name or 'server:port:token'. Default: '${relay_triple}'." >&2
 	echo "  -v --verbose      - Verbose execution." >&2
 	eval "${old_xtrace}"
 }
 
-short_opts="hk:t:v"
-long_opts="help,kernel:,relay-triple:,verbose"
+short_opts="hk:o:t:v"
+long_opts="help,kernel:,out-file:,relay-triple:,verbose"
 
 opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
 
@@ -42,6 +43,10 @@ while true ; do
 		;;
 	-k | --kernel)
 		kernel="${2}"
+		shift 2
+		;;
+	-o | --out-file)
+		out_file="${2}"
 		shift 2
 		;;
 	-t | --relay-triple)
@@ -69,6 +74,17 @@ if [[ -f "${relay_triple}" ]]; then
 	echo "${name}: INFO: Relay triple: '${relay_triple}'" >&2
 fi
 
+if [[ ! ${relay_triple} ]]; then
+	echo "${name}: ERROR: Must provide --relay_triple option." >&2
+	usage
+	exit 1
+fi
+
+relay_triple=$(relay_resolve_triple ${relay_triple})
+
+token=$(relay_triple_to_token ${relay_triple})
+out_file=${out_file:-"${kernel}.${token}"}
+
 if [[ ${usage} ]]; then
 	usage
 	exit 0
@@ -82,12 +98,6 @@ fi
 
 check_file "${kernel}"
 
-if [[ ! ${relay_triple} ]]; then
-	echo "${name}: ERROR: Must provide --relay_triple option." >&2
-	usage
-	exit 1
-fi
-
 on_exit() {
 	local result=${1}
 
@@ -99,8 +109,21 @@ trap "on_exit 'Done, failed.'" EXIT
 LANG=C
 LC_ALL=C
 
-# This must match the entry in the kernel config fixup.spec file.
-old=$(egrep --text --only-matching --max-count=1 'tci_relay_triple=x*z' ${kernel})
+# kernel_param must match the CONFIG_CMDLINE entry in the kernel config fixup.spec file.
+kernel_param='tci_relay_triple=x*z'
+set +e
+old=$(eval "egrep --text --only-matching --max-count=1 '${kernel_param}' ${kernel}")
+result=${?}
+
+if [[ ${result} -ne 0 ]]; then
+	echo "${name}: ERROR: Kernel tci_relay_triple command line param '${kernel_param}' not found." >&2
+	echo "Kernel strings:" >&2
+	egrep --text 'tci_relay_triple' ${kernel} >&2
+	egrep --text  --max-count=1 'chosen.*bootargs' ${kernel} >&2
+	exit 1
+fi
+set -e
+
 old_len=${#old}
 
 new="tci_relay_triple=${relay_triple}"
@@ -111,18 +134,14 @@ empty="                                                          "
 pad=$(printf '%0.*s' $(( ${old_len} - ${new_len} )) "${empty}")
 pad_len=${#pad}
 
-token=$(relay_triple_to_token ${relay_triple})
-
-test_kernel="${kernel}.${token}"
-
-cat ${kernel} | sed "{s/${old}/${new}${pad}/g}" > ${test_kernel}
+cat ${kernel} | sed "{s/${old}/${new}${pad}/g}" > ${out_file}
 
 if [[ ${verbose} ]]; then
-	egrep --text 'tci_relay_triple' ${test_kernel}
+	egrep --text 'tci_relay_triple' ${out_file} >&2
 fi
 
 trap - EXIT
 
-echo "${name}: INFO: Test kernel: '${test_kernel}'" >&2
+echo "${name}: INFO: Test kernel: '${out_file}'" >&2
 
 on_exit 'Done, success.'

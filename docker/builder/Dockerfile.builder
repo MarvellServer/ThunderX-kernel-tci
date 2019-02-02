@@ -20,6 +20,7 @@ RUN echo 'deb-src http://deb.debian.org/debian buster main' >> /etc/apt/sources.
 		ccache \
 		debootstrap \
 		dnsutils \
+		dosfstools \
 		git \
 		gcc-x86-64-linux-gnu \
 		inotify-tools \

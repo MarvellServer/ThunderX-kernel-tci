@@ -6,7 +6,7 @@ script {
 }
 
 kernelTrigger {
-    git_url = 'https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git'
-    git_branch = 'master'
-    cron_spec = '@hourly'
+    git_url = 'https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git'
+    git_branch = 'linux-4.20.y'
+    cron_spec = 'H H/6 * * *' // Every 6 Hrs.
 }

@@ -1,14 +1,14 @@
 #!/bin/bash
 
-if [[ ! -f /.dockerenv || -z "${TCI_JENKINS}" ]]; then
+if [[ ! -f /.dockerenv || ! ${TCI_JENKINS} ]]; then
 	echo "ERROR: Must be run from inside tci-jenkins container."
 	exit -1
 fi
 
 set -ex
 
-SRC=${SRC:='/var/tci-store'}
-DEST=${DEST:='/var/jenkins_home/workspace/tci/kernel/kernel-test-cache/bootstrap'}
+SRC=${SRC:-'/var/tci-store'}
+DEST=${DEST:-'/var/jenkins_home/workspace/tci/kernel/kernel-test-cache/bootstrap'}
 
 mkdir -p ${DEST}
 

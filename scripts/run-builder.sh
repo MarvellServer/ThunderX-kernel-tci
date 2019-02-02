@@ -4,12 +4,12 @@ set -e
 
 name="$(basename $0)"
 
-SCRIPTS_TOP=${SCRIPTS_TOP:="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}
+SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"}
 
-source ${SCRIPTS_TOP}/common.sh
+source ${SCRIPTS_TOP}/lib-common.sh
 
-DOCKER_TOP=${DOCKER_TOP:="$( cd "${SCRIPTS_TOP}/../docker" && pwd )"}
-DOCKER_TAG=${DOCKER_TAG:="$("${DOCKER_TOP}/builder/build-builder.sh" --tag)"}
+DOCKER_TOP=${DOCKER_TOP:-"$( cd "${SCRIPTS_TOP}/../docker" && pwd )"}
+DOCKER_TAG=${DOCKER_TAG:-"$("${DOCKER_TOP}/builder/build-builder.sh" --tag)"}
 
 usage () {
 	local old_xtrace="$(shopt -po xtrace || :)"
@@ -18,7 +18,6 @@ usage () {
 	echo "Usage: ${name} [flags] -- [command] [args]" >&2
 	echo "Option flags:" >&2
 	echo "  -a --docker-args    - Args for docker run. Default: '${docker_args}'" >&2
-	echo "  -d --dry-run        - Do not run build commands." >&2
 	echo "  -h --help           - Show this help and exit." >&2
 	echo "  -n --container-name - Container name. Default: '${container_name}'." >&2
 	echo "  -s --no-sudoers     - Do not setup sudoers." >&2
@@ -28,13 +27,20 @@ usage () {
 	echo "  command             - Default: '${user_cmd}'" >&2
 	echo "Environment:" >&2
 	echo "  DOCKER_TAG          - Default: '${DOCKER_TAG}'" >&2
+	echo "  TCI_CHECKOUT_SERVER - Default: '${TCI_CHECKOUT_SERVER}'" >&2
+	echo "  TCI_CHECKOUT_PORT   - Default: '${TCI_CHECKOUT_PORT}'" >&2
+	echo "  TCI_RELAY_SERVER    - Default: '${TCI_RELAY_SERVER}'" >&2
+	echo "  TCI_RELAY_PORT      - Default: '${TCI_RELAY_PORT}'" >&2
+	echo "  TCI_TFTP_SERVER     - Default: '${TCI_TFTP_SERVER}'" >&2
+	echo "  TCI_TFTP_USER       - Default: '${TCI_TFTP_USER}'" >&2
+	echo "  TCI_TFTP_ROOT       - Default: '${TCI_TFTP_ROOT}'" >&2
 	echo "Examples:" >&2
 	echo "  ${name} -v" >&2
 	eval "${old_xtrace}"
 }
 
-short_opts="a:dhn:stv"
-long_opts="docker-args:,dry-run,help,container-name:,no-sudoers,tag,verbose"
+short_opts="a:hn:stv"
+long_opts="docker-args:,help,container-name:,no-sudoers,tag,verbose"
 
 opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
 
@@ -50,10 +56,6 @@ while true ; do
 	-a | --docker-args)
 		docker_args="${2}"
 		shift 2
-		;;
-	-d | --dry-run)
-		dry_run=1
-		shift
 		;;
 	-h | --help)
 		usage=1
@@ -88,58 +90,51 @@ while true ; do
 	esac
 done
 
-cmd_trace=1
+on_exit() {
+	local result=${1}
+
+	echo "${name}: ${result}" >&2
+}
+
+trap "on_exit 'Done, failed.'" EXIT
+
 docker_extra_args=""
 
-if [[ -z "${container_name}" ]]; then
-	container_name="tci"
-fi
-
-if [[ -z "${user_cmd}" ]]; then
-	user_cmd="/bin/bash"
-fi
+container_name=${container_name:-"tci"}
+user_cmd=${user_cmd:-"/bin/bash"}
 
 if [[ -n "${usage}" ]]; then
 	usage
 	exit 0
 fi
 
-if [[ -n "${tag}" ]]; then
+if [[ ${tag} ]]; then
 	show_tag
 	exit 0
 fi
 
+if [[ ! ${TCI_CHECKOUT_SERVER} ]]; then
+	echo "${name}: ERROR: TCI_CHECKOUT_SERVER not defined.'" >&2
+	usage
+	exit 1
+fi
+if [[ ! ${TCI_RELAY_SERVER} ]]; then
+	echo "${name}: ERROR: TCI_RELAY_SERVER not defined.'" >&2
+	usage
+	exit 1
+fi
+if [[ ! ${TCI_TFTP_SERVER} ]]; then
+	echo "${name}: ERROR: TCI_TFTP_SERVER not defined.'" >&2
+	usage
+	exit 1
+fi
+
+if [[ ! ${SSH_AUTH_SOCK} ]]; then
+	echo "${name}: ERROR: SSH_AUTH_SOCK not defined.'" >&2
+fi
+
 if [[ $(echo "${docker_args}" | egrep ' -w ') ]]; then
 	docker_extra_args+=" -v $(pwd):/work -w /work"
-fi
-
-relay_server="tci-relay"
-tftp_server="tci-tftp"
-bmc_host="t88-bmc"
-
-
-relay_addr=$(find_addr /etc/hosts ${relay_server})
-
-if [[ ${relay_addr} ]]; then
-	docker_extra_args+=" --add-host='${relay_server}:${relay_addr}'"
-else
-	echo "${name}: WARNING: '${relay_server}' address not found." >&2
-fi
-
-tftp_addr=$(find_addr /etc/hosts ${tftp_server})
-
-if [[ ${tftp_addr} ]]; then
-	docker_extra_args+=" --add-host='${tftp_server}:${tftp_addr}'"
-else
-	echo "${name}: WARNING: '${tftp_server}' address not found." >&2
-fi
-
-bmc_addr=$(find_addr /etc/hosts ${bmc_host})
-
-if [[ ${bmc_addr} ]]; then
-	docker_extra_args+=" --add-host='${bmc_host}:${bmc_addr}'"
-else
-	echo "${name}: WARNING: '${bmc_host}' address not found." >&2
 fi
 
 if [[ ! ${no_sudoers} ]]; then
@@ -148,16 +143,29 @@ if [[ ! ${no_sudoers} ]]; then
 	-v /etc/group:/etc/group:ro \
 	-v /etc/passwd:/etc/passwd:ro \
 	-v /etc/shadow:/etc/shadow:ro \
-	-v /etc/sudoers.d:/etc/sudoers.d:ro"
+	-v /dev:/dev"
 fi
 
-run_cmd "docker run \
+eval "docker run \
+	--rm \
+	-it \
+	--privileged \
+	--network host \
 	--name ${container_name} \
 	--hostname ${container_name} \
-	--rm \
-	 -it \
-	--privileged \
+	--add-host ${container_name}:127.0.0.1 \
+	-v ${SSH_AUTH_SOCK}:/ssh-agent -e SSH_AUTH_SOCK=/ssh-agent \
+	-e TCI_CHECKOUT_SERVER \
+	-e TCI_CHECKOUT_PORT \
+	-e TCI_RELAY_SERVER \
+	-e TCI_RELAY_PORT \
+	-e TCI_TFTP_SERVER \
+	-e TCI_TFTP_USER \
+	-e TCI_TFTP_ROOT \
 	${docker_extra_args} \
 	${docker_args} \
 	${DOCKER_TAG} \
 	${user_cmd}"
+
+trap - EXIT
+on_exit 'Done, success.'

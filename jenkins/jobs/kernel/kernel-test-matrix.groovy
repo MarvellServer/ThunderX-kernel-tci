@@ -27,6 +27,9 @@ properties([
     booleanParam(name: 'USE_KERNEL_CACHE',
         defaultValue: false,
         description: 'Use cached kernel image.')
+    string(name: 'PIPELINE_BRANCH',
+            defaultValue: 'master',
+            description: 'Branch to use for fetching the pipeline jobs')
     ])
 ])
 
@@ -55,6 +58,7 @@ def map_entry = { Boolean _kernel_debug, String _kernel_git_branch,
                 string(name: 'TARGET_ARCH', value: target_arch),
                 booleanParam(name: 'USE_IMAGE_CACHE', value: use_image_cache),
                 booleanParam(name: 'USE_KERNEL_CACHE', value: use_kernel_cache)
+                string(name: 'PIPELINE_BRANCH', value: params.PIPELINE_BRANCH)
             ]
         )
     }
