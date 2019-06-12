@@ -91,14 +91,14 @@ void *mem_alloc(size_t size)
 	struct mem_header *h;
 
 	if (size == 0) {
-		log("Error: Zero size alloc.\n");
+		log("ERROR: Zero size alloc.\n");
 		exit(EXIT_FAILURE);
 	}
 
 	h = malloc(sizeof(struct mem_header) + size);
 
 	if (!h) {
-		log("Error: calloc %lu failed: %s.\n", (unsigned long)size,
+		log("ERROR: calloc %lu failed: %s.\n", (unsigned long)size,
 			strerror(errno));
 		exit(EXIT_FAILURE);
 	}
@@ -125,7 +125,7 @@ void *mem_alloc_zero(size_t size)
 void _mem_free(void *p)
 {
 	if (!p) {
-		log("Error: null free.\n");
+		log("ERROR: null free.\n");
 		assert(0);
 		exit(EXIT_FAILURE);
 	}
@@ -135,13 +135,13 @@ void _mem_free(void *p)
 	debug("h=%p, p=%p\n", h, p);
 
 	if (h->magic != mem_magic) {
-		log("Error: bad object.\n");
+		log("ERROR: bad object.\n");
 		assert(0);
 		exit(EXIT_FAILURE);
 	}
 
 	if (h->free_called) {
-		log("Error: double free.\n");
+		log("ERROR: double free.\n");
 		assert(0);
 		exit(EXIT_FAILURE);
 	}
@@ -173,8 +173,16 @@ int __attribute__ ((format (printf, 2, 3))) client_reply_and_close(
 	expected = vsnprintf(reply, sizeof(reply), fmt, ap);
 	va_end(ap);
 
+	reply[msg_buffer_len] = 0;
+
 	if (expected <= 0) {
-		log("vsnprintf failed: %d, '%s'\n", expected, fmt);
+		log("ERROR: vsnprintf failed: %d, '%s'\n", expected, fmt);
+		assert(0);
+		strncpy(reply, "ERR:internal", sizeof(reply));
+	}
+
+	if (expected >= msg_buffer_len) {
+		log("ERROR: Reply too large:\n\n%s\n\n", reply);
 		assert(0);
 		strncpy(reply, "ERR:internal", sizeof(reply));
 	}
@@ -185,7 +193,7 @@ int __attribute__ ((format (printf, 2, 3))) client_reply_and_close(
 	close(client_fd);
 
 	if (written != expected) {
-		log("write failed: %s\n", strerror(errno));
+		log("ERROR: Write failed: %s\n", strerror(errno));
 		return -1;
 	}
 

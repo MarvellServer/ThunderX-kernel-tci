@@ -3,10 +3,8 @@
  */
 
 #include <assert.h>
-//#include <errno.h>
-//#include <string.h>
+#include <stdio.h>
 #include <unistd.h>
-
 
 #include "timer.h"
 #include "log.h"
@@ -14,19 +12,31 @@
 
 STATIC_LIST(timer_list);
 
-void __attribute__((unused)) timer_dump_list(const char *text)
+size_t __attribute__((unused)) timer_dump_list(const char *text, char *str,
+	size_t str_len)
 {
 	int i;
+	size_t count = 0;
 	struct timer *entry;
 
 	debug_raw("%s %s\n", __func__, text);
+	if (str && count < str_len) {
+		count += snprintf(str + count, str_len - count,
+			"%s %s\n", __func__, text);
+	}
 
 	i = 0;
 	list_for_each(&timer_list, entry, list_entry) {
 		debug_raw("  [%d] entry=%p, callback_data=%p\n",
 			i, entry, entry->callback_data);
+		if (str && count < str_len) {
+			count += snprintf(str + count, str_len - count,
+				"  [%d] entry=%p, callback_data=%p\n",
+				i, entry, entry->callback_data);
+		}
 		i++;
 	}
+	return count;
 }
 
 static void timer_run_callbacks(time_t now)
@@ -65,7 +75,7 @@ void timer_remove(struct timer *timer)
 	struct timer *entry;
 
 	debug("%p\n", timer);
-	timer_dump_list(__func__);
+	timer_dump_list(__func__, NULL, 0);
 
 	list_for_each(&timer_list, entry, list_entry) {
 		if (entry == timer) {

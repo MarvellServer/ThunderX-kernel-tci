@@ -24,7 +24,8 @@ struct co_msg {
 
 void _co_print(const char *func, int line, const struct co_msg *msg);
 #define co_print(_msg) do {_co_print(__func__, __LINE__, _msg);} while(0)
-void __attribute__((unused)) co_dump_list(const char *text);
+size_t __attribute__((unused)) co_dump_list(const char *text, char *str,
+	size_t str_len);
 int co_add(int client_fd, const char *resource, unsigned int request_seconds);
 void co_remove(struct co_msg *msg);
 struct co_msg *co_find_by_resource(const char *resource);

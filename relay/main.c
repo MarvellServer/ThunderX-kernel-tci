@@ -168,12 +168,22 @@ static int opts_parse(struct opts *opts, int argc, char *argv[])
 	return optind != argc;
 }
 
-static void dump_lists(const char *str)
+static size_t dump_lists(const char *text, char *str, size_t str_len)
 {
-	put_dump_list(str);
-	get_dump_list(str);
-	co_dump_list(str);
-	timer_dump_list(str);
+	size_t count = 0;
+
+	if (str && count < str_len) {
+		count += snprintf(str + count, str_len - count, "\n");
+	}
+	count += put_dump_list(text, str + count, str_len - count);
+	count += get_dump_list(text, str + count, str_len - count);
+	count += co_dump_list(text, str + count, str_len - count);
+	count += timer_dump_list(text, str + count, str_len - count);
+	if (str && count < str_len) {
+		count += snprintf(str + count, str_len - count, "\n");
+	}
+
+	return count;
 }
 
 struct connection {
@@ -509,8 +519,30 @@ static int process_ckq(int client_fd, char *msg)
 static int process_dmp(int  __attribute__((unused)) client_fd,
 	char __attribute__((unused)) *msg)
 {
-	dump_lists("- dmp");
+	const size_t str_len = 1024;
+	char* str = mem_alloc(str_len);
+	size_t count;
+	size_t written;
+
+	count = dump_lists("- dmp", str, str_len);
+	str[str_len - 1] = 0;
+
+	if (count >= str_len) {
+		log("ERROR: String full:\n%s\n", str);
+		assert(0);
+	}
+
+	written = write(client_fd, str, count);
+
+	if (written != count) {
+		log("ERROR: Write failed: %s\n", strerror(errno));
+		assert(0);
+		exit(EXIT_FAILURE);
+	}
+
 	client_reply_and_close(client_fd, "OK-");
+
+	mem_free(str);
 	return 0;
 }
 
@@ -685,7 +717,7 @@ int main(int argc, char *argv[])
 	counter = 1;
 	while (!sig_events.term) {
 		debug_raw("[%u]=====================\n", counter++);
-		dump_lists("- main");
+		dump_lists("- main", NULL, 0);
 		debug_raw("--------------------------\n");
 
 		result = poll(pollfd, pollfd_len, -1);

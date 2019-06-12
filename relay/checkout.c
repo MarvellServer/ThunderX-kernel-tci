@@ -49,20 +49,34 @@ void _co_print(const char *func, int line, const struct co_msg *msg)
 	debug_raw("  timer_seconds: %u\n", msg->timer_seconds);
 }
 
-void __attribute__((unused)) co_dump_list(const char *text)
+size_t __attribute__((unused)) co_dump_list(const char *text, char *str,
+	size_t str_len)
 {
 	int i;
+	size_t count = 0;
 	struct co_msg *entry;
 
 	debug_raw("%s (count=%u) %s\n", __func__, co_manager.counter, text);
+	if (str && count < str_len) {
+		count += snprintf(str + count, str_len - count,
+			"%s (count=%u) %s\n", __func__, co_manager.counter,
+			text);
+	}
 
 	i = 0;
 	list_for_each(&co_manager.list, entry, list_entry) {
 		debug_raw("  [%d] %p resource='%s', token='%s', sec=%u\n",
 			i, entry, entry->resource, entry->token,
 			entry->timer_seconds);
+		if (str && count < str_len) {
+			count += snprintf(str + count, str_len - count,
+				"  [%d] %p resource='%s', token='%s', sec=%u\n",
+			i, entry, entry->resource, entry->token,
+			entry->timer_seconds);
+		}
 		i++;
 	}
+	return count;
 }
 
 static int co_add_waiting(int client_fd, const char *resource,

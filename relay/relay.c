@@ -58,19 +58,32 @@ void _get_print(const char *func, int line, const struct get_msg *msg)
 	debug_raw("  client_fd: %d\n", msg->client_fd);
 }
 
-void __attribute__((unused)) get_dump_list(const char *text)
+size_t __attribute__((unused)) get_dump_list(const char *text, char *str,
+	size_t str_len)
 {
 	int i;
+	size_t count = 0;
 	struct get_msg *msg;
 
 	debug_raw("%s (count=%u) %s\n", __func__, get_manager.counter, text);
+	if (str && count < str_len) {
+		count += snprintf(str + count, str_len - count,
+			"%s (count=%u) %s\n", __func__, get_manager.counter,
+			text);
+	}
 
 	i = 0;
 	list_for_each(&get_manager.list, msg, list_entry) {
 		debug_raw("  [%d] token='%s', fd=%d\n",
 			i, msg->token, msg->client_fd);
+		if (str && count < str_len) {
+			count += snprintf(str + count, str_len - count,
+				"  [%d] token='%s', fd=%d\n",
+				i, msg->token, msg->client_fd);
+		}
 		i++;
 	}
+	return count;
 }
 
 struct get_msg *get_find_by_token(const char *token)
@@ -190,19 +203,32 @@ void _put_print(const char *func, int line, const struct put_msg *msg)
 	debug_raw("  server: '%s'\n", msg->server);
 }
 
-void __attribute__((unused)) put_dump_list(const char *text)
+size_t __attribute__((unused)) put_dump_list(const char *text, char *str,
+	size_t str_len)
 {
 	int i;
+	size_t count = 0;
 	struct put_msg *msg;
 
 	debug_raw("%s (count=%u) %s\n", __func__, put_manager.counter, text);
+	if (str && count < str_len) {
+		count += snprintf(str + count, str_len - count,
+			"%s (count=%u) %s\n", __func__, put_manager.counter,
+			text);
+	}
 
 	i = 0;
 	list_for_each(&put_manager.list, msg, list_entry) {
 		debug_raw("  [%d] token='%s', server='%s', fd=%d\n",
 			i, msg->token, msg->server, msg->client_fd);
+		if (str && count < str_len) {
+			count += snprintf(str + count, str_len - count,
+				"  [%d] token='%s', server='%s', fd=%d\n",
+				i, msg->token, msg->server, msg->client_fd);
+		}
 		i++;
 	}
+	return count;
 }
 
 struct put_msg *put_find_by_token(const char *token)
