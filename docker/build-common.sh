@@ -181,9 +181,9 @@ while true ; do
 		;;
 	-v | --verbose)
 		if [[ -n "${JENKINS_URL}" ]]; then
-			export PS4='+${BASH_SOURCE##*/}:${LINENO}:'
+			export PS4='+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}):'
 		else
-			export PS4='\[\033[0;33m\]+${BASH_SOURCE##*/}:${LINENO}: \[\033[0;37m\]'
+			export PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[0;37m\]'
 		fi
 		set -x
 		verbose=1

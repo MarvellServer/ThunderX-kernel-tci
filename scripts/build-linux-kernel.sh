@@ -9,11 +9,12 @@ usage() {
 	echo "${name} - Builds linux kernel." >&2
 	echo "Usage: ${name} [flags] <target> <kernel_src> <op>" >&2
 	echo "Option flags:" >&2
+	echo "  -c --check       - Run shellcheck." >&2
+	echo "  -h --help        - Show this help and exit." >&2
+	echo "  -v --verbose     - Verbose execution." >&2
 	echo "  -b --build-dir     - Build directory. Default: '${build_dir}'." >&2
-	echo "  -h --help          - Show this help and exit." >&2
 	echo "  -i --install-dir   - Target install directory. Default: '${install_dir}'." >&2
 	echo "  -l --local-version - Default: '${local_version}'." >&2
-	echo "  -v --verbose       - Verbose execution." >&2
 	echo "Args:" >&2
 	echo "  <target>     - Build target {${target_list}}." >&2
 	echo "                 Default: '${target}'." >&2
@@ -28,8 +29,9 @@ usage() {
 }
 
 process_opts() {
-	local short_opts="b:hi:l:v"
-	local long_opts="build-dir:,help,install-dir:,local-version:,verbose"
+	local short_opts="chvb:i:l:"
+	local long_opts="check,help,verbose,\
+build-dir:,install-dir:,local-version:"
 
 	local opts
 	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
@@ -43,13 +45,22 @@ process_opts() {
 
 	while true ; do
 		case "${1}" in
-		-b | --build-dir)
-			build_dir="${2}"
-			shift 2
+		-c | --check)
+			check=1
+			shift
 			;;
 		-h | --help)
 			usage=1
 			shift
+			;;
+		-v | --verbose)
+			#verbose=1
+			set -x
+			shift
+			;;
+		-b | --build-dir)
+			build_dir="${2}"
+			shift 2
 			;;
 		-l | --local-version)
 			local_version="${2}"
@@ -58,11 +69,6 @@ process_opts() {
 		-t | --install-dir)
 			install_dir="${2}"
 			shift 2
-			;;
-		-v | --verbose)
-			set -x
-			verbose=1
-			shift
 			;;
 		--)
 			target=${2}
@@ -112,7 +118,7 @@ on_exit() {
 	echo "${name}: make_options:  ${make_options}" >&2
 	echo "${name}: start_time:    ${start_time}" >&2
 	echo "${name}: end_time:      ${end_time}" >&2
-	echo "${name}: duration:      ${sec} sec ($(sec_to_min ${sec} min)" >&2
+	echo "${name}: duration:      ${sec} sec ($(sec_to_min ${sec} min) min)" >&2
 	exit ${result}
 }
 
@@ -160,7 +166,7 @@ install_modules() {
 #===============================================================================
 # program start
 #===============================================================================
-export PS4='\[\033[0;33m\]+${BASH_SOURCE##*/}:${LINENO}: \[\033[0;37m\]'
+export PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[0;37m\]'
 set -e
 
 name="${0##*/}"
@@ -182,6 +188,7 @@ targets="
 "
 ops="
 	all
+	build
 	defconfig
 	fresh
 	headers
@@ -216,6 +223,12 @@ fi
 
 if [[ -n "${usage}" ]]; then
 	usage
+	exit 0
+fi
+
+if [[ ${check} ]]; then
+	run_shellcheck "${0}"
+	trap "on_exit 'Success'" EXIT
 	exit 0
 fi
 
@@ -342,7 +355,7 @@ rebuild)
 savedefconfig)
 	eval "make ${make_options} savedefconfig"
 	;;
-targets)
+build|targets)
 	make_targets
 	;;
 gconfig | menuconfig | oldconfig | olddefconfig | xconfig)

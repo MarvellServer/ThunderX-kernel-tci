@@ -21,6 +21,7 @@ RUN echo 'deb-src http://deb.debian.org/debian buster main' >> /etc/apt/sources.
 		curl \
 		debootstrap \
 		dnsutils \
+		docker.io \
 		dosfstools \
 		gcc-x86-64-linux-gnu \
 		git \
@@ -36,6 +37,7 @@ RUN echo 'deb-src http://deb.debian.org/debian buster main' >> /etc/apt/sources.
 		qemu-system-x86-64 \
 		qemu-user-static \
 		qemu-utils \
+		rsync \
 		sbsigntool \
 		sudo \
 		tcpdump \
@@ -48,9 +50,11 @@ RUN echo 'deb-src http://deb.debian.org/debian buster main' >> /etc/apt/sources.
 		gcc-aarch64-linux-gnu \
 		qemu-efi-aarch64 \
 		qemu-system-arm \
+	&& if [ "$(uname -m)" != "aarch64" ]; then \
+		DEBIAN_FRONTEND=noninteractive apt-get -y install \
 		gcc-powerpc-linux-gnu \
 		qemu-system-ppc \
-		openbios-ppc \
+		openbios-ppc; fi \
 	&& DEBIAN_FRONTEND=noninteractive apt-get -y autoremove \
 	&& rm -rf /var/lib/apt/lists/* \
 	&& mv /usr/sbin/tcpdump /usr/bin/tcpdump

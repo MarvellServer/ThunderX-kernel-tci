@@ -80,6 +80,7 @@ cleanup_chroot () {
 
 	clean_qemu_static ${chroot}
 
-	${sudo} umount --recursive ${chroot}/{proc,sys,dev,run} &> /dev/null | :
-	mount | egrep ${chroot} | :
+	${sudo} umount --recursive ${chroot}/{proc,sys,dev,run} &> /dev/null || :
+
+	mount | egrep ${chroot} || :
 }

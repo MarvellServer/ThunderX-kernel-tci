@@ -46,42 +46,48 @@ extract_minirootfs() {
 }
 
 bootstrap_rootfs() {
-	local rootfs=${1}
+	local bootstrap_dir=${1}
 
 	local download_dir="${tmp_dir}/downloads"
 	local archive_file
 
-	${sudo} rm -rf ${rootfs}
+	${sudo} rm -rf ${bootstrap_dir}
 
 	download_minirootfs ${download_dir} ${alpine_os_mirror} archive_file
-	extract_minirootfs ${archive_file} ${rootfs}
+	extract_minirootfs ${archive_file} ${bootstrap_dir}
 
 	rm -rf ${download_dir}
 
-	setup_resolv_conf ${rootfs}
+	setup_resolv_conf ${bootstrap_dir}
 
-	enter_chroot ${rootfs} "
+	enter_chroot ${bootstrap_dir} "
 		set -e
 		apk update
 		apk upgrade
-		apk add openrc busybox-initscripts
+		apk add openrc \
+			busybox-initscripts \
+			dropbear \
+			dropbear-scp \
+			haveged \
+			net-tools \
+			strace
 		cat /etc/os-release
 		apk info | sort
 	"
 
 	${sudo} ln -s /etc/init.d/{hwclock,modules,sysctl,hostname,bootmisc,syslog} \
-		${rootfs}/etc/runlevels/boot/
+		${bootstrap_dir}/etc/runlevels/boot/
 	${sudo} ln -s /etc/init.d/{devfs,dmesg,mdev,hwdrivers} \
-		${rootfs}/etc/runlevels/sysinit/
+		${bootstrap_dir}/etc/runlevels/sysinit/
 	${sudo} ln -s /etc/init.d/{networking} \
-		${rootfs}/etc/runlevels/default/
+		${bootstrap_dir}/etc/runlevels/default/
 	${sudo} ln -s /etc/init.d/{mount-ro,killprocs,savecache} \
-		${rootfs}/etc/runlevels/shutdown/
+		${bootstrap_dir}/etc/runlevels/shutdown/
 
 	${sudo} sed --in-place 's/^net.ipv4.tcp_syncookies/# net.ipv4.tcp_syncookies/' \
-		${rootfs}/etc/sysctl.d/00-alpine.conf
+		${bootstrap_dir}/etc/sysctl.d/00-alpine.conf
 	${sudo} sed --in-place 's/^kernel.panic/# kernel.panic/' \
-		${rootfs}/etc/sysctl.d/00-alpine.conf
+		${bootstrap_dir}/etc/sysctl.d/00-alpine.conf
 }
 
 setup_network() {
@@ -103,7 +109,8 @@ setup_packages() {
 
 	enter_chroot ${rootfs} "
 		set -e
-		apk add haveged dropbear dropbear-scp ${packages}
+		apk add ${packages}
+		apk add efivar-libs --repository http://dl-3.alpinelinux.org/alpine/edge/community --allow-untrusted
 		apk add efibootmgr --repository http://dl-3.alpinelinux.org/alpine/edge/testing/ --allow-untrusted
 		apk info | sort
 	"
@@ -193,6 +200,7 @@ alpine_os_mirror="http://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/"
 
 get_default_packages() {
 	local default_packages="
+		file
 		net-tools
 		netcat-openbsd
 		pciutils

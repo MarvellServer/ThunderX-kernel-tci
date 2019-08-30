@@ -1,16 +1,4 @@
-# Debian plug-in routines for build-rootfs.sh.
-
-debug_check() {
-	local info=${1}
-
-	echo "debug_check: (${info}) vvvv" >&2
-	set +e
-	${sudo} true
-	mount
-	${sudo} ls -l /var/run/sudo/ts
-	set -e
-	echo "debug_check: (${info}) ^^^^" >&2
-}
+# CoreOS plug-in routines for build-rootfs.sh.
 
 bootstrap_rootfs() {
 	local rootfs=${1}
@@ -27,12 +15,6 @@ bootstrap_rootfs() {
 		debian_arch="arm64"
 		debian_os_release=${debian_os_release:-"buster"}
 		debian_os_mirror=${debian_os_mirror:-"http://ftp.us.debian.org/debian"}
-		;;
-	ppc32|ppc64)
-		debian_arch="powerpc"
-		debian_os_release=${debian_os_release:-"unstable"}
-		debian_os_mirror=${debian_os_mirror:-"http://ftp.ports.debian.org/debian-ports"}
-		debootstrap_extra="--include=debian-ports-archive-keyring --exclude=powerpc-ibm-utils,powerpc-utils"
 		;;
 	*)
 		echo "${name}: ERROR: Unsupported target-arch '${target_arch}'." >&2
