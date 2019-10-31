@@ -1,5 +1,100 @@
 #!/usr/bin/env bash
 
+usage () {
+	local old_xtrace="$(shopt -po xtrace || :)"
+	set +o xtrace
+
+	echo "${name} - ${project_description}" >&2
+	echo "Usage: ${name} [flags]" >&2
+	echo "Option flags:" >&2
+	echo "  -h --help     - Show this help and exit." >&2
+	echo "  -p --purge    - Remove existing docker image and rebuild." >&2
+	echo "  -r --rebuild  - Rebuild existing docker image." >&2
+	echo "  -t --tag      - Print Docker tag to stdout and exit." >&2
+	echo "  -v --verbose  - Verbose execution." >&2
+	echo "  --install     - Install systemd service files." >&2
+	echo "  --start       - Start systemd services." >&2
+	echo "  --enable      - Enable systemd services." >&2
+	echo "Environment:" >&2
+	echo "  DOCKER_FILE   - Default: '${DOCKER_FILE}'" >&2
+	echo "  DOCKER_FROM   - Default: '${DOCKER_FROM}'" >&2
+	echo "  DOCKER_TAG    - Default: '${DOCKER_TAG}'" >&2
+	if [[ -n ${JENKINS_USER} ]];then
+	echo "  JENKINS_USER  - Default: '${JENKINS_USER}'" >&2
+	fi
+	echo "Examples:" >&2
+	echo "  ${name} -v"
+
+	eval "${old_xtrace}"
+}
+
+process_opts() {
+	local short_opts="hprtv"
+	local long_opts="help,purge,rebuild,tag,verbose,install,start,enable"
+
+	local opts
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+
+	eval set -- "${opts}"
+
+	while true ; do
+		case "${1}" in
+		-h | --help)
+			usage=1
+			shift
+			;;
+		-p | --purge)
+			purge=1
+			shift
+			;;
+		-r | --rebuild)
+			rebuild=1
+			shift
+			;;
+		-t | --tag)
+			tag=1
+			shift
+			;;
+		-v | --verbose)
+			if [[ -n "${JENKINS_URL}" ]]; then
+				export PS4='+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}):'
+			else
+				export PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[0;37m\]'
+			fi
+			set -x
+			verbose=1
+			shift
+			;;
+		--install)
+			install=1
+			shift
+			;;
+		--start)
+			install=1
+			start=1
+			shift
+			;;
+		--enable)
+			install=1
+			enable=1
+			shift
+			;;
+		--)
+			shift
+			break
+			;;
+		*)
+			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			exit 1
+			;;
+		esac
+	done
+}
+
+version () {
+	echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'
+}
+
 get_arch() {
 	local a=${1}
 
@@ -35,6 +130,19 @@ docker_from_alpine() {
 	esac
 }
 
+docker_from_centos() {
+	local a="$(get_arch $(uname -m))"
+
+	case "${a}" in
+		amd64) echo "centos:7" ;;
+		arm64) echo "centos:7" ;;
+		*)
+			echo "${name}: ERROR: Unknown arch ${a}" >&2
+			exit 1
+			;;
+	esac
+}
+
 docker_from_debian() {
 	local a="$(get_arch $(uname -m))"
 
@@ -63,6 +171,7 @@ docker_from_jenkins() {
 			;;
 	esac
 }
+
 docker_from_openjdk() {
 	local a="$(get_arch $(uname -m))"
 
@@ -108,6 +217,8 @@ SERVICE_FILE=${SERVICE_FILE:-"${PROJECT_TOP}/tci-${project_name}.service"}
 case "${project_from}" in
 alpine)
 	DOCKER_FROM=${DOCKER_FROM:-"$(docker_from_alpine)"} ;;
+centos)
+	DOCKER_FROM=${DOCKER_FROM:-"$(docker_from_centos)"} ;;
 debian)
 	DOCKER_FROM=${DOCKER_FROM:-"$(docker_from_debian)"} ;;
 jenkins)
@@ -121,102 +232,9 @@ ubuntu)
 	exit 1
 esac
 
-usage () {
-	local old_xtrace="$(shopt -po xtrace || :)"
-	set +o xtrace
+process_opts "${@}"
 
-	echo "${name} - ${project_description}" >&2
-	echo "Usage: ${name} [flags]" >&2
-	echo "Option flags:" >&2
-	echo "  -h --help     - Show this help and exit." >&2
-	echo "  -p --purge    - Remove existing docker image and rebuild." >&2
-	echo "  -r --rebuild  - Rebuild existing docker image." >&2
-	echo "  -t --tag      - Print Docker tag to stdout and exit." >&2
-	echo "  -v --verbose  - Verbose execution." >&2
-	echo "  --install     - Install systemd service files." >&2
-	echo "  --start       - Start systemd services." >&2
-	echo "  --enable      - Enable systemd services." >&2
-	echo "Environment:" >&2
-	echo "  DOCKER_FILE   - Default: '${DOCKER_FILE}'" >&2
-	echo "  DOCKER_FROM   - Default: '${DOCKER_FROM}'" >&2
-	echo "  DOCKER_TAG    - Default: '${DOCKER_TAG}'" >&2
-	if [[ -n ${JENKINS_USER} ]];then
-	echo "  JENKINS_USER  - Default: '${JENKINS_USER}'" >&2
-	fi
-	echo "Examples:" >&2
-	echo "  ${name} -v"
-
-	eval "${old_xtrace}"
-}
-
-short_opts="hprtv"
-long_opts="help,purge,rebuild,tag,verbose,install,start,enable"
-
-opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
-
-if [ $? != 0 ]; then
-	echo "${name}: ERROR: Internal getopt" >&2
-	exit 1
-fi
-
-eval set -- "${opts}"
-
-while true ; do
-	case "${1}" in
-	-h | --help)
-		usage=1
-		shift
-		;;
-	-p | --purge)
-		purge=1
-		shift
-		;;
-	-r | --rebuild)
-		rebuild=1
-		shift
-		;;
-	-t | --tag)
-		tag=1
-		shift
-		;;
-	-v | --verbose)
-		if [[ -n "${JENKINS_URL}" ]]; then
-			export PS4='+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}):'
-		else
-			export PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[0;37m\]'
-		fi
-		set -x
-		verbose=1
-		shift
-		;;
-	--install)
-		install=1
-		shift
-		;;
-	--start)
-		install=1
-		start=1
-		shift
-		;;
-	--enable)
-		install=1
-		enable=1
-		shift
-		;;
-	--)
-		shift
-		break
-		;;
-	*)
-		echo "${name}: ERROR: Internal opts: '${@}'" >&2
-		exit 1
-		;;
-	esac
-done
-
-cmd_trace=1
-
-if [[ -n "${usage}" ]]; then
+if [[ ${usage} ]]; then
 	usage
 	exit 0
 fi
@@ -226,14 +244,10 @@ if ! test -x "$(command -v docker)"; then
 	exit 1
 fi
 
-if [[ -n "${tag}" ]]; then
+if [[ ${tag} ]]; then
 	show_tag
 	exit 0
 fi
-
-version () {
-	echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'
-}
 
 # Support for docker versions older than 17.05.
 # See https://github.com/moby/moby/issues/32457
@@ -301,6 +315,6 @@ if [[ -f ${SERVICE_FILE} ]]; then
 	fi
 fi
 
-echo "${name}: Done, success." >&2
-
 show_tag
+
+echo "${name}: Done, success." >&2

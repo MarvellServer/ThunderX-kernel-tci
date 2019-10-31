@@ -1,0 +1,57 @@
+# ThunderX-CI image for compiling linux kernel, creating test rootfs, running QEMU.
+
+ARG DOCKER_FROM
+
+FROM ${DOCKER_FROM}
+
+#ENV LANG C.UTF-8
+#ENV LC_ALL C.UTF-8
+
+ENV TCI_BUILDER 1
+
+RUN \
+	yum -y install deltarpm \
+	&& yum -y update \
+	&& yum -y clean all \
+	&& yum -y group install development \
+	&& yum -y install \
+		bash \
+		bash-completion \
+		ccache \
+		curl \
+		docker \
+		dosfstools \
+		git \
+		grub2-common \
+		inotify-tools \
+		ipmitool \
+		libncurses5-dev \
+		netcat-openbsd \
+		OVMF \
+		qemu-system-arm \
+		qemu-system-x86-64 \
+		qemu-user \
+		rsync \
+		socat \
+		sudo \
+		texinfo \
+		tcpdump \
+		tftp \
+		vim \
+		wget \
+		yum-utils \
+	&& if [ "$(uname -m)" = "x86_64" ]; then \
+		yum -y install centos-release-scl \
+		&& yum -y install devtoolset-8 \
+		&& scl enable devtoolset-8 bash; fi
+
+CMD /bin/bash
+
+# FIXME: Missing from Debian:
+#		binfmt-support \
+#		dnsutils \
+#		isc-dhcp-server \
+#		net-tools \
+#		procps \
+#		qemu-utils \
+#		sbsigntool \
