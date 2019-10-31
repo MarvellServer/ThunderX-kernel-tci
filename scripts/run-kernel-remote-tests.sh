@@ -174,8 +174,6 @@ trap "on_exit 'failed.'" EXIT
 
 process_opts "${@}"
 
-test_machine=${test_machine:-"t88"}
-
 host_arch=$(get_arch "$(uname -m)")
 start_extra_args=""
 out_file=${out_file:-"${test_machine}.out"}
@@ -193,6 +191,8 @@ if [[ ${usage} ]]; then
 	usage
 	exit 0
 fi
+
+check_opt 'test-machine' ${test_machine}
 
 check_opt 'kernel' ${kernel}
 check_file "${kernel}"
@@ -318,7 +318,15 @@ remote_ssh_opts=''
 # The remote host address could come from DHCP, so don't use known_hosts.
 ssh_no_check="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
-source ${SCRIPTS_TOP}/test-plugin/${test_name}.sh
+if [[ -f ${SCRIPTS_TOP}/test-plugin/${test_name}.sh ]]; then
+	source ${SCRIPTS_TOP}/test-plugin/${test_name}.sh
+elif [[ -f ${SCRIPTS_TOP}/test-plugin/${test_name}/${test_name}.sh ]]; then
+	source ${SCRIPTS_TOP}/test-plugin/${test_name}/${test_name}.sh
+else
+	echo "${name}: ERROR: Test plugin '${test_name}.sh' not found." >&2
+	exit 1
+fi
+
 run_ssh_opts="${ssh_no_check} -i ${ssh_login_key} ${remote_ssh_opts}"
 test_run_${test_name/-/_} ${tests_dir} ${test_machine} ${remote_host} run_ssh_opts
 

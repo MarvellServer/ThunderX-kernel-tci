@@ -23,6 +23,9 @@ test_packages_ltp() {
 
 	case "${rootfs_type}" in
 	alpine)
+		# FIXME: Error relocating /root/ltp-test/opt/ltp/bin/ltp-pan: __sprintf_chk: symbol not found
+		echo "${FUNCNAME[0]}: TODO: Need to setup build wih alpine's musl glibc." >&2
+		exit 1
 		echo 'libaio-dev'
 		;;
 	debian)
@@ -82,7 +85,8 @@ test_build_ltp() {
 	pushd ${build_dir}
 
 	if [[ "${host_arch}" != "${target_arch}" ]]; then
-		make_opts="CC=$(get_triple ${target_arch})-gcc"
+		local triple="$(get_triple ${target_arch})"
+		make_opts="--host=${triple} CC=${triple}-gcc"
 	fi
 
 	export SYSROOT="${sysroot}"
@@ -97,9 +101,11 @@ test_build_ltp() {
 		CPPFLAGS="-I${SYSROOT}/usr/include -I${SYSROOT}/include -I${SYSROOT}" \
 		LDFLAGS="-L${SYSROOT}/usr/lib -L${SYSROOT}/lib" \
 		DESTDIR="${build_dir}/install" \
-		${configure_opts}
+		${make_opts}
 	(unset TARGET_ARCH; make)
 	make DESTDIR="${build_dir}/install" install
+
+	file ${build_dir}/install/opt/ltp/bin/ltp-pan
 	tar -C ${DESTDIR} -czf ${archive_file} .
 
 	popd
@@ -126,7 +132,8 @@ test_run_ltp() {
 
 	case "${machine_type}" in
 	qemu)
-		LTP_RUN_OPTS='-b /dev/vda -z /dev/vdb'
+		LTP_DEV='/dev/vda'
+		LTP_RUN_OPTS='-b /dev/vdb -z /dev/vdc'
 		;;
 	remote)
 		;;
@@ -142,8 +149,10 @@ test_run_ltp() {
 	scp ${ssh_opts} ${archive_file} ${ssh_host}:ltp.tar.gz
 
 	set +e
-	timeout ${timeout} ssh ${ssh_opts} ${ssh_host} LTP_RUN_OPTS="'${LTP_RUN_OPTS}'" 'sh -s' <<'EOF'
-export PS4='+ltp-test-script:${LINENO}: '
+	timeout ${timeout} ssh ${ssh_opts} ${ssh_host} \
+		LTP_DEV="'${LTP_DEV}'" \
+		LTP_RUN_OPTS="'${LTP_RUN_OPTS}'" 'sh -s' <<'EOF'
+export PS4='+ ltp-test-script:${LINENO}: '
 set -ex
 
 cat /proc/partitions
@@ -159,7 +168,10 @@ rootfs_type=${rootfs_type#ID=}
 #fi
 #echo -17 > /proc/${sshd_pid}/oom_adj
 
+mkfs.ext4 ${LTP_DEV}
 mkdir -p ltp-test
+mount ${LTP_DEV} ltp-test
+
 tar -C ltp-test -xf ltp.tar.gz
 cd ./ltp-test/opt/ltp
 
@@ -172,8 +184,7 @@ set +e
 ls -l ./bin/ltp-pan
 ldd ./bin/ltp-pan
 
-#./runltp -S skip-tests ${LTP_RUN_OPTS}
-echo "skippping tests for debug!!!"
+./runltp -S skip-tests ${LTP_RUN_OPTS}
 
 result=${?}
 set -e

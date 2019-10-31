@@ -1,14 +1,5 @@
 #!/usr/bin/env bash
 
-set -e
-
-name="${0##*/}"
-
-SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "${BASH_SOURCE%/*}" && pwd )"}
-
-source ${SCRIPTS_TOP}/lib/util.sh
-TARGET_HOSTNAME=${TARGET_HOSTNAME:-"tci-tester"}
-
 usage() {
 	local old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
@@ -30,103 +21,166 @@ usage() {
 	echo "  -v --verbose           - Verbose execution." >&2
 	echo "  --hda                  - QEMU IDE hard disk image hda. Default: '${hda}'." >&2
 	echo "  --hdb                  - QEMU IDE hard disk image hdb. Default: '${hdb}'." >&2
+	echo "  --hdc                  - QEMU IDE hard disk image hdc. Default: '${hdc}'." >&2
 	echo "  --pid-file             - QEMU IDE hard disk image hdb. Default: '${pid_file}'." >&2
+	echo "  --p9-share             - Plan9 share directory. Default: '${p9_share}'." >&2
 	eval "${old_xtrace}"
 }
 
-short_opts="a:c:e:f:hi:k:m:o:r:stv"
-long_opts="arch:,kernel-cmd:,ether-mac:,hostfwd-offset:,help,initrd:,\
+process_opts() {
+	local short_opts="a:c:e:f:hi:k:m:o:r:stv"
+	local long_opts="arch:,kernel-cmd:,ether-mac:,hostfwd-offset:,help,initrd:,\
 kernel:,modules:,out-file:,disk-image:,systemd-debug,qemu-tap,verbose,\
-hda:,hdb:,pid-file:"
+hda:,hdb:,hdc:,pid-file:,p9-share:"
 
-opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	local opts
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
 
-if [ $? != 0 ]; then
-	echo "${name}: ERROR: Internal getopt" >&2
-	exit 1
-fi
-
-eval set -- "${opts}"
-
-while true ; do
-	case "${1}" in
-	-a | --arch)
-		target_arch=$(get_arch "${2}")
-		shift 2
-		;;
-	-c | --kernel-cmd)
-		kernel_cmd="${2}"
-		shift 2
-		;;
-	-e | --ether-mac)
-		ether_mac="${2}"
-		shift 2
-		;;
-	-f | --hostfwd-offset)
-		hostfwd_offset="${2}"
-		shift 2
-		;;
-	-h | --help)
-		usage=1
-		shift
-		;;
-	-i | --initrd)
-		initrd="${2}"
-		shift 2
-		;;
-	-k | --kernel)
-		kernel="${2}"
-		shift 2
-		;;
-	-m | --modules)
-		modules="${2}"
-		shift 2
-		;;
-	-o | --out-file)
-		out_file="${2}"
-		shift 2
-		;;
-	-r | --disk-image)
-		disk_image="${2}"
-		shift 2
-		;;
-	-s | --systemd-debug)
-		systemd_debug=1
-		shift
-		;;
-	-t | --qemu-tap)
-		qemu_tap=1
-		shift
-		;;
-	-v | --verbose)
-		set -x
-		verbose=1
-		shift
-		;;
-	--hda)
-		hda="${2}"
-		shift 2
-		;;
-	--hdb)
-		hdb="${2}"
-		shift 2
-		;;
-	--pid-file)
-		pid_file="${2}"
-		shift 2
-		;;
-	--)
-		shift
-		break
-		;;
-	*)
-		echo "${name}: ERROR: Internal opts: '${@}'" >&2
+	if [ $? != 0 ]; then
+		echo "${name}: ERROR: Internal getopt" >&2
 		exit 1
+	fi
+
+	eval set -- "${opts}"
+
+	while true ; do
+		case "${1}" in
+		-a | --arch)
+			target_arch=$(get_arch "${2}")
+			shift 2
+			;;
+		-c | --kernel-cmd)
+			kernel_cmd="${2}"
+			shift 2
+			;;
+		-e | --ether-mac)
+			ether_mac="${2}"
+			shift 2
+			;;
+		-f | --hostfwd-offset)
+			hostfwd_offset="${2}"
+			shift 2
+			;;
+		-h | --help)
+			usage=1
+			shift
+			;;
+		-i | --initrd)
+			initrd="${2}"
+			shift 2
+			;;
+		-k | --kernel)
+			kernel="${2}"
+			shift 2
+			;;
+		-m | --modules)
+			modules="${2}"
+			shift 2
+			;;
+		-o | --out-file)
+			out_file="${2}"
+			shift 2
+			;;
+		-r | --disk-image)
+			disk_image="${2}"
+			shift 2
+			;;
+		-s | --systemd-debug)
+			systemd_debug=1
+			shift
+			;;
+		-t | --qemu-tap)
+			qemu_tap=1
+			shift
+			;;
+		-v | --verbose)
+			set -x
+			verbose=1
+			shift
+			;;
+		--hda)
+			hda="${2}"
+			shift 2
+			;;
+		--hdb)
+			hdb="${2}"
+			shift 2
+			;;
+		--hdc)
+			hdc="${2}"
+			shift 2
+			;;
+		--pid-file)
+			pid_file="${2}"
+			shift 2
+			;;
+		--p9-share)
+			p9_share="${2}"
+			shift 2
+			;;
+		--)
+			shift
+			break
+			;;
+		*)
+			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			exit 1
+			;;
+		esac
+	done
+}
+
+setup_efi() {
+	local efi_code_src
+	local efi_vars_src
+	local efi_full_src
+
+	case "${target_arch}" in
+	amd64)
+		efi_code_src="/usr/share/OVMF/OVMF_CODE.fd"
+		efi_vars_src="/usr/share/OVMF/OVMF_VARS.fd"
+		efi_full_src="/usr/share/ovmf/OVMF.fd"
+		;;
+	arm64)
+		efi_code_src="/usr/share/AAVMF/AAVMF_CODE.fd"
+		efi_vars_src="/usr/share/AAVMF/AAVMF_VARS.fd"
+		efi_full_src="/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"
 		;;
 	esac
-done
+
+	efi_code="${efi_code_src}"
+	efi_vars="${target_arch}-EFI_VARS.fd"
+
+	check_file ${efi_code_src}
+	check_file ${efi_vars_src}
+
+	copy_file ${efi_vars_src} ${efi_vars}
+}
+
+on_exit() {
+	local result=${1}
+
+	echo "${name}: Done:       ${result}" >&2
+	exit ${result}
+}
+
+#===============================================================================
+# program start
+#===============================================================================
+name="${0##*/}"
+
+trap "on_exit 'failed.'" EXIT
+set -e
+
+SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "${BASH_SOURCE%/*}" && pwd )"}
+source ${SCRIPTS_TOP}/lib/util.sh
+
+process_opts "${@}"
+
+TARGET_HOSTNAME=${TARGET_HOSTNAME:-"tci-tester"}
 
 MODULES_ID=${MODULES_ID:-"kernel_modules"}
+P9_SHARE_ID=${SHARE_ID:-"p9_share"}
 
 host_arch=$(get_arch "$(uname -m)")
 target_arch=${target_arch:-"${host_arch}"}
@@ -140,6 +194,7 @@ fi
 
 if [[ -n "${usage}" ]]; then
 	usage
+	trap - EXIT
 	exit 0
 fi
 
@@ -179,34 +234,6 @@ if [[ ${modules} ]]; then
 	check_directory "${modules}"
 fi
 
-# --- end common ---
-
-setup_efi() {
-	local efi_code_src
-	local efi_vars_src
-	local efi_full_src
-
-	case "${target_arch}" in
-	amd64)
-		efi_code_src="/usr/share/OVMF/OVMF_CODE.fd"
-		efi_vars_src="/usr/share/OVMF/OVMF_VARS.fd"
-		efi_full_src="/usr/share/ovmf/OVMF.fd"
-		;;
-	arm64)
-		efi_code_src="/usr/share/AAVMF/AAVMF_CODE.fd"
-		efi_vars_src="/usr/share/AAVMF/AAVMF_VARS.fd"
-		efi_full_src="/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"
-		;;
-	esac
-
-	efi_code="${efi_code_src}"
-	efi_vars="${target_arch}-EFI_VARS.fd"
-
-	check_file ${efi_code_src}
-	check_file ${efi_vars_src}
-
-	copy_file ${efi_vars_src} ${efi_vars}
-}
 
 qemu_args="-kernel ${kernel}"
 qemu_append_args="${kernel_cmd}"
@@ -214,59 +241,57 @@ qemu_append_args="${kernel_cmd}"
 case "${host_arch}--${target_arch}" in
 amd64--amd64)
 	have_efi=1
-	have_virtio=1
 	qemu_exe="qemu-system-x86_64"
 	qemu_args+=" -machine accel=kvm -cpu host -m 2048 -smp 2"
 	;;
+arm64--amd64)
+	have_efi=1
+	qemu_exe="qemu-system-x86_64"
+	qemu_args+=" -machine pc-q35-2.8 -cpu kvm64 -m 2048 -smp 2"
+	;;
 amd64--arm64)
 	have_efi=1
-	have_virtio=1
 	qemu_exe="qemu-system-aarch64"
 	qemu_args+=" -machine virt,gic-version=3 -cpu cortex-a57 -m 5120 -smp 2"
 	#qemu_args+=" -machine virt,gic-version=3 -cpu cortex-a57 -m 15360 -smp 2"
 	;;
+arm64--arm64)
+	have_efi=1
+	qemu_exe="qemu-system-aarch64"
+	qemu_args+=" -machine virt,gic-version=3,accel=kvm -cpu host -m 4096 -smp 2"
+	;;
 amd64--ppc*)
+	unset have_efi
 	qemu_exe="qemu-system-ppc64"
 	#qemu_args+=" -machine cap-htm=off -m 2048"
 	qemu_args+=" -machine pseries,cap-htm=off -m 2048"
 	;;
-arm64--amd64)
-	have_efi=1
-	have_virtio=1
-	qemu_exe="qemu-system-x86_64"
-	qemu_args+=" -machine pc-q35-2.8 -cpu kvm64 -m 2048 -smp 2"
-	;;
-arm64--arm64)
-	have_efi=1
-	have_virtio=1
-	qemu_exe="qemu-system-aarch64"
-	qemu_args+=" -machine virt,gic-version=3,accel=kvm -cpu host -m 4096 -smp 2"
-	;;
 *)
-	echo "${name}: ERROR: Unsupported host--target combo: '${"${host_arch}--${target_arch}"}'." >&2
+	echo "${name}: ERROR: Unsupported host--target combo: '${host_arch}--${target_arch}'." >&2
 	exit 1
 	;;
 esac
 
+nic_model=${nic_model:-"virtio-net-pci"}
 
 if [[ ${qemu_tap} ]]; then
-	# FIXME: Needs test.
-	# FIXME: Use virtio-net-device or virtio-net-pci???
 	qemu_args+=" \
 	-netdev tap,id=tap0,ifname=qemu0,br=br0 \
-	-device virtio-net-pci,netdev=tap0,mac=${ether_mac} \
+	-device ${nic_model},netdev=tap0,mac=${ether_mac} \
 	"
 else
 	ssh_fwd=$(( ${hostfwd_offset} + 22 ))
-
 	echo "${name}: SSH fwd = ${ssh_fwd}" >&2
 
-virtio_net_type="virtio-net-device"
-virtio_net_type="virtio-net-pci"
-
-if [[ ${virtio_net_type} ]]; then
-	qemu_args+=" -netdev user,id=eth0,hostfwd=tcp::${ssh_fwd}-:22,hostname=${TARGET_HOSTNAME}"
-	qemu_args+=" -device ${virtio_net_type},netdev=eth0"
+	# FIXME: When is -nic unsupported?
+	if [[ ${use_virtio_net} ]]; then
+		#virtio_net_type="virtio-net-device"
+		virtio_net_type="virtio-net-pci"
+		qemu_args+=" -netdev user,id=eth0,hostfwd=tcp::${ssh_fwd}-:22,hostname=${TARGET_HOSTNAME}"
+		qemu_args+=" -device ${virtio_net_type},netdev=eth0"
+	else
+		qemu_args+=" -nic user,model=${nic_model},hostfwd=tcp::${ssh_fwd}-:22,hostname=${TARGET_HOSTNAME}"
+	fi
 fi
 
 if [[ ${initrd} ]]; then
@@ -281,12 +306,20 @@ if [[ ${hdb} ]]; then
 	qemu_args+=" -hdb ${hdb}"
 fi
 
+if [[ ${hdc} ]]; then
+	qemu_args+=" -hdc ${hdc}"
+fi
 
-if [[ ${modules} ]]; then # TODO
+if [[ ${p9_share} ]]; then
+	check_directory "${p9_share}"
 	qemu_args+=" \
-		-fsdev local,id=modules,security_model=none,path=${modules} \
-		-device virtio-9p-device,fsdev=modules,mount_tag=${MODULES_ID} \
-	"
+		-virtfs local,id=${P9_SHARE_ID},path=${p9_share},security_model=none,mount_tag=${P9_SHARE_ID}"
+	echo "${name}: INFO: 'mount -t 9p -o trans=virtio ${P9_SHARE_ID} <mount-point> -oversion=9p2000.L'" >&2
+fi
+
+if [[ ${modules} ]]; then
+	qemu_args+=" \
+		-virtfs local,id=${MODULES_ID},path=${modules},security_model=none,mount_tag=${MODULES_ID}"
 fi
 
 if [[ ${disk_image} ]]; then # TODO
@@ -313,8 +346,8 @@ fi
 
 if [[ ${have_efi} ]]; then
 	setup_efi
-	qemu_args+="-drive if=pflash,file=${efi_code},format=raw,readonly"
-	qemu_args+="-drive if=pflash,file=${efi_vars},format=raw"
+	qemu_args+=" -drive if=pflash,file=${efi_code},format=raw,readonly"
+	qemu_args+=" -drive if=pflash,file=${efi_vars},format=raw"
 fi
 
 ls -l /dev/kvm || :

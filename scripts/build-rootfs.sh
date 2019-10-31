@@ -8,16 +8,16 @@ usage() {
 	echo "Option flags:" >&2
 	echo "  -a --arch              - Target architecture. Default: '${target_arch}'." >&2
 	echo "  -c --clean-rootfs      - Delete bootstrap and rootfs directories. Default: ${clean_rootfs}" >&2
-	echo "  -d --output-directory  - Image output path. Default: '${output_dir}', ${rootfs_dir}', '${initrd}', '${disk_img}'." >&2
 	echo "  -h --help              - Show this help and exit." >&2
 	echo "  -i --output-disk-image - Output a binary disk image file '${disk_img}'." >&2
 	echo "  -t --rootfs-type       - Rootfs type {$(clean_ws ${known_rootfs_types})}." >&2
 	echo "                           Default: '${rootfs_type}'." >&2
 	echo "  -v --verbose           - Verbose execution." >&2
+	echo "  --bootstrap-dir        - Bootstrap directory. Default: '${bootstrap_dir}'." >&2
+	echo "  --image-dir            - Image output path. Default: '${image_dir}', ${rootfs_dir}', '${initrd}', '${disk_img}'." >&2
 	echo "Option steps:" >&2
 	echo "  -1 --bootstrap          - Run bootstrap rootfs step. Default: '${step_bootstrap}'." >&2
 	echo "  -2 --rootfs-setup       - Run rootfs setup step. Default: '${step_rootfs_setup}'." >&2
-	echo "    --bootstrap-src       - Bootstrap source path. Default: '${bootstrap_src}'." >&2
 	echo "    --kernel-modules      - Kernel modules to install. Default: '${kernel_modules}'." >&2
 	echo "    --extra-packages      - Extra distro packages. Default: '${extra_packages}'." >&2
 	echo "  -3 --make-image         - Run make image step. Default: '${step_make_image}'." >&2
@@ -25,10 +25,10 @@ usage() {
 }
 
 process_opts() {
-	local short_opts="a:b:hikm:o:p:t:v123"
-	local long_opts="arch:,output-directory:,help,output-disk-image,\
-	clean-rootfs,kernel-modules:,extra-packages:,rootfs-type:,verbose,\
-	bootstrap,rootfs-setup,bootstrap-src:,make-image"
+	local short_opts="a:chit:v123"
+	local long_opts="arch:,clean-rootfs,help,output-disk-image,rootfs-type:,verbose,\
+bootstrap-dir:,image-dir:,\
+bootstrap,rootfs-setup,kernel-modules:,extra-packages:,make-image"
 
 	local opts
 	opts=$(getopt --options "${short_opts}" --long "${long_opts}" -n "${name}" -- "${@}")
@@ -45,10 +45,6 @@ process_opts() {
 		-c | --clean-rootfs)
 			clean_rootfs=1
 			shift
-			;;
-		-d | --output-directory)
-			output_dir="${2}"
-			shift 2
 			;;
 		-h | --help)
 			usage=1
@@ -75,6 +71,14 @@ process_opts() {
 			verbose=1
 			shift
 			;;
+		--bootstrap-dir)
+			bootstrap_dir="${2}"
+			shift 2
+			;;
+		--image-dir)
+			image_dir="${2}"
+			shift 2
+			;;
 		-1 | --bootstrap)
 			step_bootstrap=1
 			shift
@@ -82,10 +86,6 @@ process_opts() {
 		-2 | --rootfs-setup)
 			step_rootfs_setup=1
 			shift
-			;;
-		--bootstrap-src)
-			bootstrap_src="${2}"
-			shift 2
 			;;
 		-3 | --make-image)
 			step_make_image=1
@@ -272,12 +272,14 @@ on_exit() {
 }
 
 on_fail() {
-	local rootfs=${1}
+	local chroot=${1}
 	local mnt=${2}
 
 	echo "${name}: Step ${current_step}: FAILED." >&2
 
-	cleanup_chroot ${rootfs}
+	${sudo} chown -R $(id --user --real --name): ${chroot}
+
+	cleanup_chroot ${chroot}
 
 	if [ -d "${mnt}" ]; then
 		clean_make_disk_img "${mnt}"
@@ -289,7 +291,7 @@ on_fail() {
 	fi
 
 	if [ ${need_clean_rootfs} ]; then
-		delete_rootfs ${rootfs}
+		${sudo} rm -rf ${chroot}
 	fi
 
 	on_exit
@@ -373,30 +375,28 @@ source ${SCRIPTS_TOP}/lib/chroot.sh
 trap "on_exit" EXIT
 set -e
 
-
 sudo="sudo -S"
 
 process_opts "${@}"
 
-rootfs_type=${rootfs_type:-"debian"}
 TARGET_HOSTNAME=${TARGET_HOSTNAME:-"tci-tester"}
 
+rootfs_type=${rootfs_type:-"debian"}
 source "${SCRIPTS_TOP}/rootfs-plugin/${rootfs_type}.sh"
 
 host_arch=$(get_arch "$(uname -m)")
 target_arch=${target_arch:-"${host_arch}"}
 
-output_dir=${output_dir:-"$(pwd)/tci-image--${target_arch}-${rootfs_type}}"}
+image_dir=${image_dir:-"$(pwd)/${target_arch}-${rootfs_type}.image"}
+bootstrap_dir=${bootstrap_dir:-"${image_dir%.image}.bootstrap"}
 
-bootstrap_src="${bootstrap_src:-${output_dir}}"
-rootfs_dir="${output_dir}/rootfs"
-disk_img="${output_dir}/disk.img"
-initrd="${output_dir}/initrd"
-manifest="${output_dir}/manifest"
-server_key="${output_dir}/server-key"
-login_key="${output_dir}/login-key"
+image_rootfs="${image_dir}/rootfs"
+disk_img="${image_dir}/disk.img"
+initrd="${image_dir}/initrd"
+manifest="${image_dir}/manifest"
+server_key="${image_dir}/server-key"
+login_key="${image_dir}/login-key"
 
-check_kernel_modules ${kernel_modules}
 test_step_code
 
 if [ ${usage} ]; then
@@ -406,11 +406,8 @@ fi
 
 ${sudo} true
 
-${sudo} rm -rf ${disk_img} ${initrd} ${manifest} ${server_key} ${login_key} 
-
-cleanup_chroot ${rootfs_dir}
-
-trap "on_fail ${rootfs_dir} none" EXIT
+cleanup_chroot ${image_rootfs}
+cleanup_chroot ${bootstrap_dir}
 
 tmp_dir="$(mktemp --tmpdir --directory ${name}.XXXX)"
 
@@ -418,84 +415,83 @@ if [ ${step_bootstrap} ]; then
 	current_step="bootstrap"
 	echo "${name}: INFO: Step ${current_step} (${rootfs_type}): start." >&2
 
-	delete_rootfs ${output_dir}
-	mkdir -p ${output_dir}
+	trap "on_fail ${bootstrap_dir} none" EXIT
+	sudo rm -rf ${bootstrap_dir}
+	mkdir -p ${bootstrap_dir}
 
-	bootstrap_rootfs ${output_dir}
-	${sudo} chown -R $(id --user --real --name): ${output_dir}
+	bootstrap_rootfs ${bootstrap_dir}
+	${sudo} chown -R $(id --user --real --name): ${bootstrap_dir}
 
-	echo "${name}: INFO: Step ${current_step} (${rootfs_type}): Done (${output_dir})." >&2
-	echo "${name}: INFO: Bootstrap size: $(directory_size_human ${output_dir})"
+	echo "${name}: INFO: Step ${current_step} (${rootfs_type}): Done (${bootstrap_dir})." >&2
+	echo "${name}: INFO: Bootstrap size: $(directory_size_human ${bootstrap_dir})"
 fi
 
 if [ ${step_rootfs_setup} ]; then
 	current_step="rootfs_setup"
 	echo "${name}: INFO: Step ${current_step} (${rootfs_type}): start." >&2
+	echo "${name}: INFO: Step ${current_step}: Using ${bootstrap_dir}." >&2
 
-	if [[ -d "${bootstrap_src}.bootstrap" ]]; then
-		bootstrap_src="${bootstrap_src}/bootstrap"
-	elif [[ -d "${bootstrap_src}/bootstrap" ]]; then
-		bootstrap_src="${bootstrap_src}/bootstrap"
-	fi
+	check_directory "${bootstrap_dir}"
+	check_directory "${bootstrap_dir}/usr/bin"
 
-	echo "${name}: INFO: Step ${current_step}: Using ${bootstrap_src}." >&2
+	check_directory ${kernel_modules}
+	check_kernel_modules ${kernel_modules}
 
-	check_directory ${bootstrap_src}
+	trap "on_fail ${image_rootfs} none" EXIT
 
-	if [[ "${bootstrap_src}/rootfs" != "${rootfs_dir} " ]]; then
-		mkdir -p ${rootfs_dir}
-		${sudo} rsync -a --delete ${bootstrap_src}/ ${rootfs_dir}/
-	fi
+	mkdir -p ${image_rootfs}
+	${sudo} rsync -a --delete ${bootstrap_dir}/ ${image_rootfs}/
 
-	setup_packages ${rootfs_dir} $(get_default_packages) ${extra_packages}
+	setup_packages ${image_rootfs} $(get_default_packages) ${extra_packages}
 
-	setup_initrd_boot ${rootfs_dir}
-	setup_login ${rootfs_dir}
-	setup_network ${rootfs_dir}
-	setup_sshd ${rootfs_dir} ${server_key}
-	setup_ssh_keys ${rootfs_dir} ${login_key}
-	setup_kernel_modules ${rootfs_dir} ${kernel_modules}
-	setup_relay_client ${rootfs_dir}
+	setup_initrd_boot ${image_rootfs}
+	setup_login ${image_rootfs}
+	setup_network ${image_rootfs}
+	setup_sshd ${image_rootfs} ${server_key}
+	setup_ssh_keys ${image_rootfs} ${login_key}
+	setup_kernel_modules ${image_rootfs} ${kernel_modules}
+	setup_relay_client ${image_rootfs}
 
-	rootfs_cleanup ${rootfs_dir}
+	rootfs_cleanup ${image_rootfs}
 
-	${sudo} chown -R $(id --user --real --name): ${rootfs_dir}
+	${sudo} chown -R $(id --user --real --name): ${image_rootfs}
 
-	print_usage_summary ${rootfs_dir} ${kernel_modules}
+	print_usage_summary ${image_rootfs} ${kernel_modules}
 	echo "${name}: INFO: Step ${current_step} (${rootfs_type}): done." >&2
 fi
 
 if [ ${step_make_image} ]; then
 	current_step="make_image"
 	echo "${name}: INFO: Step ${current_step} (${rootfs_type}): start." >&2
-	check_directory ${rootfs_dir}
+
+	check_directory ${image_rootfs}
 
 	if [ ${output_disk_image} ]; then
 		tmp_mnt="${tmp_dir}/tci-disk-mnt"
-		trap "on_fail ${rootfs_dir} ${tmp_mnt}" EXIT
-		make_disk_img ${rootfs_dir} ${disk_img} ${tmp_mnt}
-		trap "on_fail ${rootfs_dir} none" EXIT
+		trap "on_fail ${image_rootfs} ${tmp_mnt}" EXIT
+		make_disk_img ${image_rootfs} ${disk_img} ${tmp_mnt}
+		trap "on_fail ${image_rootfs} none" EXIT
 		clean_make_disk_img "${tmp_mnt}"
 	fi
 
-	make_ramfs ${rootfs_dir} ${initrd}
-	make_manifest ${rootfs_dir} ${manifest}
+	make_ramfs ${image_rootfs} ${initrd}
+	make_manifest ${image_rootfs} ${manifest}
 
 	if [ -d ${tmp_mnt} ]; then
 		rm -rf ${tmp_mnt}
 	fi
 
-	need_clean_rootfs=${clean_rootf}
+	need_clean_rootfs=${clean_rootfs}
 
-	print_usage_summary ${rootfs_dir} ${kernel_modules}
+	print_usage_summary ${image_rootfs} ${kernel_modules}
 	echo "${name}: INFO: Step ${current_step} (${rootfs_type}): done." >&2
 
 fi
 
 if [ ${need_clean_rootfs} ]; then
-	delete_rootfs ${rootfs_dir}
+	${sudo} rm -rf ${image_rootfs}
 fi
 
 trap on_exit EXIT
 
-echo "${name}: INFO: Success: ${output_dir}" >&2
+echo "${name}: INFO: Success: bootstrap='${bootstrap_dir}' image='${image_dir}'" >&2

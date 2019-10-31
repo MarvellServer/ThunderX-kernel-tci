@@ -160,7 +160,7 @@ start_qemu_user_networking() {
 		--disk-image="${disk_image}" \
 		--pid-file="${qemu_pid_file}" \
 		--verbose \
-		${qemu_extra_args} \
+		${start_qemu_extra_args} \
 		</dev/null &> "${out_file}.start" &
 	ps aux
 }
@@ -228,7 +228,7 @@ EOF
 
 	${SCRIPTS_TOP}/start-qemu.sh \
 		--ether-mac=${mac}
-		${qemu_extra_args} \
+		${start_qemu_extra_args} \
 		--arch=${target_arch} \
 		--install-dir=${kernel_install_dir} \
 		--qemu-tap \
@@ -294,7 +294,7 @@ check_opt 'tests-dir' ${tests_dir}
 check_directory "${tests_dir}"
 
 if [[ ${systemd_debug} ]]; then
-	qemu_extra_args+=' --systemd-debug'
+	start_qemu_extra_args+=" --systemd-debug"
 fi
 
 ${SCRIPTS_TOP}/set-relay-triple.sh \
@@ -317,9 +317,15 @@ echo '--------' >> ${result_file}
 
 qemu_hda=${tmp_dir}/qemu-hda
 qemu-img create -f qcow2 ${qemu_hda} 8G
+start_qemu_extra_args+=" --hda=${qemu_hda}"
 
 qemu_hdb=${tmp_dir}/qemu-hdb
 qemu-img create -f qcow2 ${qemu_hdb} 8G
+start_qemu_extra_args+=" --hdb=${qemu_hdb}"
+
+qemu_hdc=${tmp_dir}/qemu-hdc
+qemu-img create -f qcow2 ${qemu_hdc} 8G
+start_qemu_extra_args+=" --hdc=${qemu_hdc}"
 
 qemu_pid_file=${tmp_dir}/qemu-pid
 
@@ -363,7 +369,15 @@ remote_ssh_opts=${user_remote_ssh_opts}
 # The remote host address could come from DHCP, so don't use known_hosts.
 ssh_no_check="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
-source ${SCRIPTS_TOP}/test-plugin/${test_name}.sh
+if [[ -f ${SCRIPTS_TOP}/test-plugin/${test_name}.sh ]]; then
+	source ${SCRIPTS_TOP}/test-plugin/${test_name}.sh
+elif [[ -f ${SCRIPTS_TOP}/test-plugin/${test_name}/${test_name}.sh ]]; then
+	source ${SCRIPTS_TOP}/test-plugin/${test_name}/${test_name}.sh
+else
+	echo "${name}: ERROR: Test plugin '${test_name}.sh' not found." >&2
+	exit 1
+fi
+
 run_ssh_opts="${ssh_no_check} -i ${ssh_login_key} ${remote_ssh_opts}"
 test_run_${test_name/-/_} ${tests_dir} ${test_machine} ${remote_host} run_ssh_opts
 

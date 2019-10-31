@@ -16,7 +16,7 @@ usage() {
 	echo "  --linux-config    - URL of an alternate kernel config. Default: ${kernel_config}." >&2
 	echo "  --linux-repo      - Linux kernel git repository URL. Default: ${kernel_repo}." >&2
 	echo "  --linux-src-dir   - Linux kernel git working tree. Default: ${kernel_src_dir}." >&2
-	echo "  --test-machine    - Test machine name. Default: '${test_machine}'." >&2
+	echo "  --test-machine    - Test machine name {$(clean_ws ${TCI_TARGET_BMC_LIST}) qemu}. Default: '${test_machine}'." >&2
 	echo "  --systemd-debug   - Run systemd with debug options. Default: '${systemd_debug}'." >&2
 	echo "  --rootfs-types    - Rootfs types to build {$(clean_ws ${known_rootfs_types}) all}." >&2
 	echo "                      Default: '${rootfs_types}'." >&2
@@ -28,8 +28,7 @@ usage() {
 	echo "  -2 --build-bootstrap  - Build rootfs bootstrap." >&2
 	echo "  -3 --build-rootfs     - Build rootfs." >&2
 	echo "  -4 --build-tests      - Build tests." >&2
-	echo "  -5 --run-qemu-tests   - Run Tests." >&2
-	echo "  -6 --run-remote-tests - Run Tests." >&2
+	echo "  -5 --run-tests        - Run tests on test machine '${test_machine}'." >&2
 	echo "Environment:" >&2
 	echo "  TCI_ROOT            - Default: '${TCI_ROOT}'." >&2
 	echo "  TCI_TEST_ROOT       - Default: '${TCI_TEST_ROOT}'." >&2
@@ -52,13 +51,12 @@ test_usage() {
 }
 
 process_opts() {
-	local short_opts="ac:hv123456"
+	local short_opts="ac:hv12345"
 	local long_opts="\
 arch:,help-all,config-file:,help,verbose,\
 build-name:,linux-branch:,linux-config:,linux-repo:,linux-src-dir:,\
 test-machine:,systemd-debug,rootfs-types:,test-types:,\
-enter,build-kernel,build-bootstrap,build-rootfs,build-tests,run-qemu-tests,\
-run-remote-tests"
+enter,build-kernel,build-bootstrap,build-rootfs,build-tests,run-tests"
 
 	local opts
 	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
@@ -145,12 +143,8 @@ run-remote-tests"
 			step_build_tests=1
 			shift
 			;;
-		-5 | --run-qemu-tests)
-			step_run_qemu_tests=1
-			shift
-			;;
-		-6 | --run-remote-tests)
-			step_run_remote_tests=1
+		-5 | --run-tests)
+			step_run_tests=1
 			shift
 			;;
 		--)
@@ -167,6 +161,10 @@ run-remote-tests"
 
 on_exit() {
 	local result=${1}
+
+	if [[ -d ${image_dir} ]]; then
+		${sudo} chown -R $(id --user --real --name): ${image_dir}
+	fi
 
 	local end_time="$(date)"
 	local end_sec="${SECONDS}"
@@ -311,8 +309,9 @@ build_bootstrap() {
 
 	${SCRIPTS_TOP}/build-rootfs.sh \
 		--arch=${target_arch} \
-		--output-dir=${bootstrap_dir} \
 		--rootfs-type=${rootfs_type} \
+		--bootstrap-dir="${bootstrap_dir}" \
+		--image-dir="NA" \
 		--bootstrap \
 		--verbose
 }
@@ -320,8 +319,8 @@ build_bootstrap() {
 build_rootfs() {
 	local rootfs_type=${1}
 	local test_name=${2}
-	local image_dir=${3}
-	local bootstrap_dir=${4}
+	local bootstrap_dir=${3}
+	local image_dir=${4}
 	local kernel_dir=${5}
 
 	check_directory "${bootstrap_dir}"
@@ -339,9 +338,9 @@ build_rootfs() {
 
 	${SCRIPTS_TOP}/build-rootfs.sh \
 		--arch=${target_arch} \
-		--output-dir=${image_dir} \
 		--rootfs-type=${rootfs_type} \
-		--bootstrap-src="${bootstrap_dir}" \
+		--bootstrap-dir="${bootstrap_dir}" \
+		--image-dir=${image_dir} \
 		--kernel-modules="${modules}" \
 		--extra-packages="${extra_packages}" \
 		--rootfs-setup \
@@ -379,13 +378,13 @@ build_tests() {
 		${kernel_src}
 }
 
-run_qemu_tests() {
+run_tests() {
 	local kernel=${1}
 	local image_dir=${2}
 	local tests_dir=${3}
 	local results_dir=${4}
 
-	echo "${name}: run_qemu_tests" >&2
+	echo "${name}: run_tests: ${test_machine}" >&2
 
 	check_file ${kernel}
 	check_directory ${image_dir}
@@ -393,51 +392,29 @@ run_qemu_tests() {
 	check_file ${image_dir}/login-key
 	check_directory ${tests_dir}
 
-	if [[ ${systemd_debug} ]]; then
-		local extra_args="--systemd-debug"
+	local test_script
+	local extra_args
+
+	if [[ ${test_machine} == 'qemu' ]]; then
+		test_script="${SCRIPTS_TOP}/run-kernel-qemu-tests.sh"
+		extra_args+=" --arch=${target_arch}"
+	else
+		test_script="${SCRIPTS_TOP}/run-kernel-remote-tests.sh"
+		extra_args+=" --test-machine=${test_machine}"
 	fi
 
-	bash -x ${SCRIPTS_TOP}/run-kernel-qemu-tests.sh \
+	if [[ ${systemd_debug} ]]; then
+		extra_args+=" --systemd-debug"
+	fi
+
+	bash -x ${test_script} \
 		--kernel=${kernel} \
 		--initrd=${image_dir}/initrd \
 		--ssh-login-key=${image_dir}/login-key \
-		--test-name=${test_name} \
-		--tests-dir=${tests_dir} \
-		--out-file=${results_dir}/qemu-console.txt \
-		--result-file=${results_dir}/qemu-result.txt \
-		--arch=${target_arch} \
-		${extra_args} \
-		--verbose
-}
-
-run_remote_tests() {
-	local kernel=${1}
-	local image_dir=${2}
-	local tests_dir=${3}
-	local results_dir=${4}
-
-	echo "${name}: run_remote_tests" >&2
-
-	check_file ${kernel}
-	check_directory ${image_dir}
-	check_file ${image_dir}/initrd
-	check_file ${image_dir}/login-key
-	check_directory ${tests_dir}
-
-	if [[ ${systemd_debug} ]]; then
-		local extra_args="--systemd-debug"
-	fi
-
-	${SCRIPTS_TOP}/run-kernel-remote-tests.sh \
-		--kernel=${kernel} \
-		--initrd=${image_dir}/initrd \
-		--ssh-login-key=${image_dir}/login-key \
-		--tests-dir=${tests_dir} \
 		--test-name=${test_name} \
 		--tests-dir=${tests_dir} \
 		--out-file=${results_dir}/${test_machine}-console.txt \
 		--result-file=${results_dir}/${test_machine}-result.txt \
-		--test-machine=${test_machine} \
 		${extra_args} \
 		--verbose
 }
@@ -445,26 +422,31 @@ run_remote_tests() {
 #===============================================================================
 # program start
 #===============================================================================
-set -e
-
+export PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[0;37m\]'
 name="${0##*/}"
+
+trap "on_exit '[setup] failed.'" EXIT
+set -e
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
 DOCKER_TOP=${DOCKER_TOP:-"$(cd "${SCRIPTS_TOP}/../docker" && pwd)"}
 
 source ${SCRIPTS_TOP}/lib/util.sh
-source ${SCRIPTS_TOP}/rootfs-plugin/plugin.sh
-source ${SCRIPTS_TOP}/test-plugin/plugin.sh
-
-config_file="${config_file:-${SCRIPTS_TOP}/tci-run.conf}"
-
-check_file ${config_file} " --config-file" "usage"
-source ${config_file}
+source ${SCRIPTS_TOP}/rootfs-plugin/rootfs-plugin.sh
+source ${SCRIPTS_TOP}/test-plugin/test-plugin.sh
 
 for test in ${known_test_types}; do
-	check_file ${SCRIPTS_TOP}/test-plugin/${test}.sh
-	source ${SCRIPTS_TOP}/test-plugin/${test}.sh
+	if [[ -f ${SCRIPTS_TOP}/test-plugin/${test}.sh ]]; then
+		source ${SCRIPTS_TOP}/test-plugin/${test}.sh
+	elif [[ -f ${SCRIPTS_TOP}/test-plugin/${test}/${test}.sh ]]; then
+		source ${SCRIPTS_TOP}/test-plugin/${test}/${test}.sh
+	else
+		echo "${name}: ERROR: Test plugin '${test}.sh' not found." >&2
+		exit 1
+	fi
 done
+
+set -x
 
 sudo="sudo -S"
 parent_ops="$@"
@@ -472,14 +454,14 @@ parent_ops="$@"
 start_time="$(date)"
 SECONDS=0
 
-trap "on_exit 'failed.'" EXIT
-
 process_opts "${@}"
 
-set -x
+config_file="${config_file:-${SCRIPTS_TOP}/tci-run.conf}"
+check_file ${config_file} " --config-file" "usage"
+source ${config_file}
 
-work_dir=${work_dir:-"/tci--test"}
-test_machine=${test_machine:-"t88"}
+container_work_dir=${container_work_dir:-"/tci--test"}
+test_machine=${test_machine:-"qemu"}
 build_name=${build_name:-"${name%.*}-$(date +%m.%d)"}
 target_arch=${target_arch:-"arm64"}
 host_arch=$(get_arch "$(uname -m)")
@@ -487,9 +469,8 @@ host_arch=$(get_arch "$(uname -m)")
 top_build_dir="$(pwd)/${build_name}"
 
 TCI_ROOT=${TCI_ROOT:-"$(cd ${SCRIPTS_TOP}/.. && pwd)"}
-TCI_TEST_ROOT=${TCI_TEST_ROOT:-"${TEST_ROOT}"}
 TCI_TEST_ROOT=${TCI_TEST_ROOT:-"$(pwd)"}
-TCI_HISTFILE=${TCI_HISTFILE:-"${work_dir}/${build_name}--bash_history"}
+TCI_HISTFILE=${TCI_HISTFILE:-"${container_work_dir}/${build_name}--bash_history"}
 
 rootfs_types=${rootfs_types:-"debian"}
 rootfs_types="${rootfs_types//,/ }"
@@ -508,7 +489,7 @@ kernel_install_dir="${top_build_dir}/${target_arch}-kernel-install"
 
 case ${target_arch} in
 arm64)
-	fixup_spec="${SCRIPTS_TOP}/tx2-fixup.spec"
+	fixup_spec="${SCRIPTS_TOP}/tx2/tx2-fixup.spec"
 	kernel_image="${kernel_install_dir}/boot/Image"
 	;;
 ppc*)
@@ -554,30 +535,32 @@ else
 	else
 		docker_cmd="/tci/scripts/tci-run.sh ${parent_ops}"
 	fi
+
 	${SCRIPTS_TOP}/run-builder.sh \
 		--verbose \
 		--container-name="${build_name}" \
 		--docker-args="\
 			-e build_name \
+			-e HOST_WORK_DIR=${TCI_TEST_ROOT} \
+			-e CURRENT_WORK_DIR=${container_work_dir} \
 			-v ${TCI_ROOT}:/tci:ro \
 			-e TCI_ROOT=/tci \
-			-v ${TCI_TEST_ROOT}:${work_dir}:rw,z \
-			-e TCI_TEST_ROOT=${work_dir} \
-			-w ${work_dir} \
+			-v ${TCI_TEST_ROOT}:${container_work_dir}:rw,z \
+			-e TCI_TEST_ROOT=${container_work_dir} \
+			-w ${container_work_dir} \
 			-e HISTFILE=${TCI_HISTFILE} \
 		" \
 		-- "${docker_cmd}"
 
-	trap - EXIT
-	on_exit 'container success.'
-	exit
+	trap "on_exit 'container success.'" EXIT
+	exit 0
 fi
 
 check_rootfs_types
 check_test_types
 
 step_code="${step_build_kernel:-"0"}${step_build_bootstrap:-"0"}\
-${step_build_rootfs:-"0"}${step_build_tests:-"0"}${step_run_qemu_tests:-"0"}\
+${step_build_rootfs:-"0"}${step_build_tests:-"0"}${step_run_tests:-"0"}\
 ${step_run_remote_tests:-"0"}"
 
 if [[ "${step_code}" == "000000" ]]; then
@@ -595,7 +578,7 @@ fi
 mkdir -p ${top_build_dir}
 
 if [[ ${step_build_kernel} ]]; then
-	trap "on_exit 'build_kernel failed.'" EXIT
+	trap "on_exit '[build_kernel] failed.'" EXIT
 
 	build_kernel ${kernel_repo} ${kernel_branch} ${kernel_config} \
 		${fixup_spec} "${kernel_platform_args}" ${kernel_src_dir} \
@@ -605,10 +588,10 @@ fi
 for rootfs_type in ${rootfs_types}; do
 
 	bootstrap_prefix="${top_build_dir}/${target_arch}-${rootfs_type}"
-	bootstrap_dir="${top_build_dir}/${target_arch}-${rootfs_type}.bootstrap"
+	bootstrap_dir="${bootstrap_prefix}.bootstrap"
 
 	if [[ ${step_build_bootstrap} ]]; then
-		trap "on_exit 'build_bootstrap failed.'" EXIT
+		trap "on_exit '[build_bootstrap] failed.'" EXIT
 		build_bootstrap ${rootfs_type} ${bootstrap_dir}
 	fi
 
@@ -623,9 +606,12 @@ for rootfs_type in ${rootfs_types}; do
 		echo "${name}: INFO: ${test_name} => ${output_prefix}" >&2
 
 		if [[ ${step_build_rootfs} ]]; then
-			trap "on_exit 'build_rootfs failed.'" EXIT
-			build_rootfs ${rootfs_type} ${test_name} ${image_dir} \
-				${bootstrap_dir} ${kernel_install_dir}
+			trap "on_exit '[build_rootfs] failed.'" EXIT
+			build_rootfs ${rootfs_type} \
+				${test_name} \
+				${bootstrap_dir} \
+				${image_dir} \
+				${kernel_install_dir}
 			create_sysroot ${rootfs_type} ${image_dir}/rootfs \
 				${image_dir}/sysroot
 			#build_kernel_with_initrd ${kernel_src_dir} \
@@ -634,24 +620,18 @@ for rootfs_type in ${rootfs_types}; do
 		fi
 
 		if [[ ${step_build_tests} ]]; then
-			trap "on_exit 'build_tests failed.'" EXIT
+			trap "on_exit '[build_tests] failed.'" EXIT
 			build_tests ${rootfs_type} ${test_name} ${tests_dir} \
 				${image_dir}/sysroot ${kernel_src_dir}
 		fi
 
-		if [[ ${step_run_qemu_tests} ]]; then
-			trap "on_exit 'run_qemu_tests failed.'" EXIT
-			run_qemu_tests ${kernel_image} \
-				${image_dir} ${tests_dir} ${results_dir}
-		fi
-
-		if [[ ${step_run_remote_tests} ]]; then
-			trap "on_exit 'run_remote_tests failed.'" EXIT
-			run_remote_tests ${kernel_image} \
-				${image_dir} ${tests_dir} ${results_dir}
+		if [[ ${step_run_tests} ]]; then
+			trap "on_exit '[run_tests] failed.'" EXIT
+			run_tests ${kernel_image} ${image_dir} ${tests_dir} \
+				${results_dir}
 		fi
 	done
 done
 
-trap - EXIT
-on_exit 'Success.'
+trap "on_exit 'Success.'" EXIT
+exit 0
