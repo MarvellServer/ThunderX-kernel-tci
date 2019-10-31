@@ -6,6 +6,7 @@ known_test_types="
 	kselftest
 	lmbench
 	ltp
+	phoronix
 	sys-info
 	unixbench
 "

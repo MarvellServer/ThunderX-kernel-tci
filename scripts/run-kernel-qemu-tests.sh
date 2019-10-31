@@ -369,9 +369,7 @@ remote_ssh_opts=${user_remote_ssh_opts}
 # The remote host address could come from DHCP, so don't use known_hosts.
 ssh_no_check="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
-if [[ -f ${SCRIPTS_TOP}/test-plugin/${test_name}.sh ]]; then
-	source ${SCRIPTS_TOP}/test-plugin/${test_name}.sh
-elif [[ -f ${SCRIPTS_TOP}/test-plugin/${test_name}/${test_name}.sh ]]; then
+if [[ -f ${SCRIPTS_TOP}/test-plugin/${test_name}/${test_name}.sh ]]; then
 	source ${SCRIPTS_TOP}/test-plugin/${test_name}/${test_name}.sh
 else
 	echo "${name}: ERROR: Test plugin '${test_name}.sh' not found." >&2

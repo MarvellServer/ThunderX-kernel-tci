@@ -60,7 +60,7 @@ test_build_lmbench() {
 		make_opts="CC=$(get_triple ${target_arch})-gcc"
 	fi
 	
-	git apply ${SCRIPTS_TOP}/test-plugin/lmbench/fix_aarch64.patch
+	git apply ${SCRIPTS_TOP}/test-plugin/${test_name}/fix_aarch64.patch
 
 	export SYSROOT="$(pwd)/${sysroot}"
 	export CPPFLAGS="-I${SYSROOT}/usr/include -I${SYSROOT}/include -I${SYSROOT}"
