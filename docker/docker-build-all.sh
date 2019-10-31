@@ -106,6 +106,7 @@ case ${host_arch} in
 amd64|arm64)
 	projects='
 		builder
+		centos-builder
 		relay
 		jenkins
 		tftpd
