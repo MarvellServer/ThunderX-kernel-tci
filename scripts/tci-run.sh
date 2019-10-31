@@ -436,9 +436,7 @@ source ${SCRIPTS_TOP}/rootfs-plugin/rootfs-plugin.sh
 source ${SCRIPTS_TOP}/test-plugin/test-plugin.sh
 
 for test in ${known_test_types}; do
-	if [[ -f ${SCRIPTS_TOP}/test-plugin/${test}.sh ]]; then
-		source ${SCRIPTS_TOP}/test-plugin/${test}.sh
-	elif [[ -f ${SCRIPTS_TOP}/test-plugin/${test}/${test}.sh ]]; then
+	if [[ -f ${SCRIPTS_TOP}/test-plugin/${test}/${test}.sh ]]; then
 		source ${SCRIPTS_TOP}/test-plugin/${test}/${test}.sh
 	else
 		echo "${name}: ERROR: Test plugin '${test}.sh' not found." >&2
