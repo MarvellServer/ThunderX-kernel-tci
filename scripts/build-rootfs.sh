@@ -103,6 +103,38 @@ bootstrap,rootfs-setup,kernel-modules:,extra-packages:,make-image"
 	done
 }
 
+on_exit() {
+	if [ -d ${tmp_dir} ]; then
+		${sudo} rm -rf ${tmp_dir}
+	fi
+}
+
+on_fail() {
+	local chroot=${1}
+	local mnt=${2}
+
+	echo "${name}: Step ${current_step}: FAILED." >&2
+
+	${sudo} chown -R $(id --user --real --name): ${chroot}
+
+	cleanup_chroot ${chroot}
+
+	if [ -d "${mnt}" ]; then
+		clean_make_disk_img "${mnt}"
+		rm -rf "${mnt}"
+	fi
+
+	if [ -d ${tmp_dir} ]; then
+		${sudo} rm -rf ${tmp_dir}
+	fi
+
+	if [ ${need_clean_rootfs} ]; then
+		${sudo} rm -rf ${chroot}
+	fi
+
+	on_exit
+}
+
 check_kernel_modules() {
 	local dir=${1}
 
@@ -263,38 +295,6 @@ clean_make_disk_img() {
 	local mnt=${1}
 
 	${sudo} umount ${mnt} || :
-}
-
-on_exit() {
-	if [ -d ${tmp_dir} ]; then
-		${sudo} rm -rf ${tmp_dir}
-	fi
-}
-
-on_fail() {
-	local chroot=${1}
-	local mnt=${2}
-
-	echo "${name}: Step ${current_step}: FAILED." >&2
-
-	${sudo} chown -R $(id --user --real --name): ${chroot}
-
-	cleanup_chroot ${chroot}
-
-	if [ -d "${mnt}" ]; then
-		clean_make_disk_img "${mnt}"
-		rm -rf "${mnt}"
-	fi
-
-	if [ -d ${tmp_dir} ]; then
-		${sudo} rm -rf ${tmp_dir}
-	fi
-
-	if [ ${need_clean_rootfs} ]; then
-		${sudo} rm -rf ${chroot}
-	fi
-
-	on_exit
 }
 
 make_disk_img() {
