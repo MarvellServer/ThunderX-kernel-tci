@@ -206,6 +206,7 @@ EOF
 
 get_default_packages() {
 	local default_packages="
+		file
 		haveged
 		login
 		net-tools

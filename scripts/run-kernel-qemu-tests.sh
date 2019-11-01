@@ -157,7 +157,6 @@ start_qemu_user_networking() {
 		--initrd="${initrd}" \
 		--kernel="${test_kernel}" \
 		--out-file="${out_file}" \
-		--disk-image="${disk_image}" \
 		--pid-file="${qemu_pid_file}" \
 		--verbose \
 		${start_qemu_extra_args} \

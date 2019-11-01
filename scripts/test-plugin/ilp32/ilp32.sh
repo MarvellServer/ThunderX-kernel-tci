@@ -1,9 +1,6 @@
+#!/usr/bin/env bash
+#
 # ILP32 hello world test plug-in.
-
-SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}/.." && pwd)"}
-source ${SCRIPTS_TOP}/lib/util.sh
-
-TEST_TOP=${TEST_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
 
 test_usage_ilp32() {
 	local old_xtrace="$(shopt -po xtrace || :)"
@@ -119,30 +116,30 @@ ilp32_run_sub_test() {
 
 	local archive_file="${tests_dir}/${test_name}-${sub_test}-archive.tar.gz"
 	local results_file="${tests_dir}/${test_name}-${sub_test}-results.tar.gz"
+	local remote_results_file="/${test_name}-${sub_test}-results.tar.gz"
 
 	rm -rf ${results_file}
 
 	scp ${ssh_opts} ${archive_file} ${ssh_host}:/
 	scp ${ssh_opts} ${TEST_TOP}/generic-test.sh ${ssh_host}:/
+	ssh ${ssh_opts} ${ssh_host} chmod +x /generic-test.sh
+	ssh ${ssh_opts} ${ssh_host} "TEST_NAME=${sub_test} sh -c 'ls -l / && env'"
 
 	set +e
-	timeout ${timeout} ssh ${ssh_opts} ${ssh_host} "TEST_NAME=${sub_test} sh -c 'ls -l /'"
-...
-sh: /generic-test.sh: Permission denied	
-	timeout ${timeout} ssh ${ssh_opts} ${ssh_host} "TEST_NAME=${sub_test} sh -c '/generic-test.sh'"
-
+	timeout ${timeout} ssh ${ssh_opts} ${ssh_host} \
+		"TEST_NAME=${sub_test} RESULTS_FILE=${remote_results_file} sh -c '/generic-test.sh'"
 	result=${?}
 	set -e
 
 	if [[ ${result} -eq 124 ]]; then
 		echo "${FUNCNAME[0]}: Done, ${test_name}-${sub_test} failed: timeout." >&2
 	elif [[ ${result} -ne 0 ]]; then
-		scp ${ssh_opts} ${ssh_host}:${results_file} ${results_file} || :
 		echo "${FUNCNAME[0]}: Done, ${test_name}-${sub_test} failed: '${result}'." >&2
 	else
-		scp ${ssh_opts} ${ssh_host}:${results_file} ${results_file}
 		echo "${FUNCNAME[0]}: Done, ${test_name}-${sub_test} success." >&2
 	fi
+
+	scp ${ssh_opts} ${ssh_host}:${remote_results_file} ${results_file}
 }
 
 test_run_ilp32() {
@@ -167,3 +164,8 @@ test_run_ilp32() {
 	ilp32_run_sub_test "hello-world"
 	ilp32_run_sub_test "vdso-test"
 }
+
+SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}/.." && pwd)"}
+source ${SCRIPTS_TOP}/lib/util.sh
+
+TEST_TOP=${TEST_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
