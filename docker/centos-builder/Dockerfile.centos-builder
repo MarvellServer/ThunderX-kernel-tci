@@ -44,7 +44,12 @@ RUN \
 	&& if [ "$(uname -m)" = "x86_64" ]; then \
 		yum -y install centos-release-scl \
 		&& yum -y install devtoolset-8 \
-		&& scl enable devtoolset-8 bash; fi
+		&& scl enable devtoolset-8 bash; fi ]
+	&& if [ "$(uname -m)" = "aarch64" ]; then \
+		yum -y install centos-release-scl-rh \
+		&& yum-config-manager --enable centos-sclo-rh-testing \
+		&& yum -y install devtoolset-8 ; fi
+		
 
 CMD /bin/bash
 
