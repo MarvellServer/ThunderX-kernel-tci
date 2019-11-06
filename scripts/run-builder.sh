@@ -183,8 +183,8 @@ fi
 eval "docker run \
 	--rm \
 	-it \
-	 --device /dev/kvm \
-	 --privileged \
+	--device /dev/kvm \
+	--privileged \
 	--network host \
 	--name ${container_name} \
 	--hostname ${container_name} \

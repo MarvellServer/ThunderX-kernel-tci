@@ -8,6 +8,7 @@ FROM ${DOCKER_FROM}
 #ENV LC_ALL C.UTF-8
 
 ENV TCI_BUILDER 1
+ENV TCI_CENTOS_BUILDER 1
 
 RUN \
 	yum -y install deltarpm \

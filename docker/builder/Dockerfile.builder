@@ -8,6 +8,7 @@ ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
 
 ENV TCI_BUILDER 1
+ENV TCI_DEBIAN_BUILDER 1
 
 RUN echo 'deb-src http://deb.debian.org/debian buster main' >> /etc/apt/sources.list \
 	&& apt-get update \
