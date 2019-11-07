@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 usage () {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-
 	echo "${name} - ${project_description}" >&2
 	echo "Usage: ${name} [flags]" >&2
 	echo "Option flags:" >&2
@@ -29,8 +29,8 @@ usage () {
 }
 
 process_opts() {
-	local short_opts="hprtv"
-	local long_opts="help,purge,rebuild,tag,verbose,install,start,enable"
+	local short_opts="chvprt"
+	local long_opts="check,help,verbose,purge,rebuild,tag,install,start,enable"
 
 	local opts
 	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
@@ -39,8 +39,22 @@ process_opts() {
 
 	while true ; do
 		case "${1}" in
+		-c | --check)
+			check=1
+			shift
+			;;
 		-h | --help)
 			usage=1
+			shift
+			;;
+		-v | --verbose)
+			verbose=1
+			if [[ ${JENKINS_URL} ]]; then
+				export PS4='+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}):'
+			else
+				export PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[0;37m\]'
+			fi
+			set -x
 			shift
 			;;
 		-p | --purge)
@@ -53,16 +67,6 @@ process_opts() {
 			;;
 		-t | --tag)
 			tag=1
-			shift
-			;;
-		-v | --verbose)
-			if [[ -n "${JENKINS_URL}" ]]; then
-				export PS4='+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}):'
-			else
-				export PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[0;37m\]'
-			fi
-			set -x
-			verbose=1
 			shift
 			;;
 		--install)
@@ -89,6 +93,14 @@ process_opts() {
 			;;
 		esac
 	done
+}
+
+on_exit() {
+	local result=${?}
+
+	build_on_exit ${result}
+	set +x
+	echo "${name}: Done: ${result}" >&2
 }
 
 version () {
@@ -198,9 +210,46 @@ docker_from_ubuntu() {
 	esac
 }
 
+docker_from() {
+	local from=${1}
+
+	case "${from}" in
+	alpine)
+		docker_from_alpine;;
+	centos)
+		docker_from_centos;;
+	debian)
+		docker_from_debian;;
+	jenkins)
+		docker_from_jenkins;;
+	openjdk)
+		docker_from_openjdk;;
+	ubuntu)
+		docker_from_ubuntu;;
+	*)
+		echo "${name}: ERROR: Bad project_from: '${from}'" >&2
+		exit 1
+	esac
+}
+
 show_tag () {
 	echo "${DOCKER_TAG}"
 }
+
+run_shellcheck() {
+	local file=${1}
+
+	shellcheck=${shellcheck:-"shellcheck"}
+
+	if ! test -x "$(command -v "${shellcheck}")"; then
+		echo "${name}: ERROR: Please install '${shellcheck}'." >&2
+		exit 1
+	fi
+
+	${shellcheck} "${file}"
+}
+
+trap "on_exit 'Failed.'" EXIT
 
 if [[ ${TCI_BUILDER} && "${project_name}" == "builder"  ]]; then
 	echo "${name}: ERROR: Building builder in builder not supported." >&2
@@ -214,28 +263,18 @@ DOCKER_TAG=${DOCKER_TAG:-"${DOCKER_NAME}:${VERSION}${ARCH_TAG}"}
 DOCKER_FILE=${DOCKER_FILE:-"${PROJECT_TOP}/Dockerfile.${project_name}"}
 SERVICE_FILE=${SERVICE_FILE:-"${PROJECT_TOP}/tci-${project_name}.service"}
 
-case "${project_from}" in
-alpine)
-	DOCKER_FROM=${DOCKER_FROM:-"$(docker_from_alpine)"} ;;
-centos)
-	DOCKER_FROM=${DOCKER_FROM:-"$(docker_from_centos)"} ;;
-debian)
-	DOCKER_FROM=${DOCKER_FROM:-"$(docker_from_debian)"} ;;
-jenkins)
-	DOCKER_FROM=${DOCKER_FROM:-"$(docker_from_jenkins)"} ;;
-openjdk)
-	DOCKER_FROM=${DOCKER_FROM:-"$(docker_from_openjdk)"} ;;
-ubuntu)
-	DOCKER_FROM=${DOCKER_FROM:-"$(docker_from_ubuntu)"} ;;
-*)
-	echo "${name}: ERROR: Bad project_from: '${project_from}'" >&2
-	exit 1
-esac
-
 process_opts "${@}"
+
+DOCKER_FROM=${DOCKER_FROM:-"$(docker_from ${project_from})"}
 
 if [[ ${usage} ]]; then
 	usage
+	exit 0
+fi
+
+if [[ ${check} ]]; then
+	run_shellcheck "${0}"
+	trap "on_exit 'Success'" EXIT
 	exit 0
 fi
 
@@ -317,4 +356,5 @@ fi
 
 show_tag
 
-echo "${name}: Done, success." >&2
+trap "on_exit 'Success.'" EXIT
+exit 0

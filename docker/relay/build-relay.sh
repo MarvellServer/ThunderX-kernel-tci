@@ -1,23 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
-
-name="${0##*/}"
-DOCKER_TOP=${DOCKER_TOP:-"$(cd "${BASH_SOURCE%/*}/.." && pwd)"}
-
-project_name="relay"
-#project_from="alpine"
-project_from="debian" # for debugging
-project_description="Builds a docker image that contains the TCI relay service."
-
-PROJECT_TOP="${DOCKER_TOP}/${project_name}"
-VERSION=${VERSION:-"1"}
-DOCKER_NAME=${DOCKER_NAME:-"tci-relay"}
-
-tmp_image="${PROJECT_TOP}/tci-relay"
-relay_src="$(cd "${PROJECT_TOP}/../../${project_name}" && pwd)"
-
-on_exit() {
+build_on_exit() {
 	rm -rf ${tmp_dir}
 	rm -f ${tmp_image}
 }
@@ -30,8 +13,6 @@ docker_build_setup() {
 		local builder_tag="$("${DOCKER_TOP}/builder/build-builder.sh" --tag)"
 
 		tmp_dir="$(mktemp --directory --tmpdir tci-relay-XXXX.bld)"
-
-		trap on_exit EXIT
 
 		cp -a ${relay_src}/* ${tmp_dir}/
 
@@ -53,5 +34,22 @@ EOF
 host_install_extra() {
 	sudo cp -vf ${tmp_dir}/tci-relay.conf.sample /etc/tci-relay.conf
 }
+
+set -e
+
+name="${0##*/}"
+DOCKER_TOP=${DOCKER_TOP:-"$(cd "${BASH_SOURCE%/*}/.." && pwd)"}
+
+project_name="relay"
+#project_from="alpine"
+project_from="debian" # for debugging
+project_description="Builds a docker image that contains the TCI relay service."
+
+PROJECT_TOP="${DOCKER_TOP}/${project_name}"
+VERSION=${VERSION:-"1"}
+DOCKER_NAME=${DOCKER_NAME:-"tci-relay"}
+
+tmp_image="${PROJECT_TOP}/tci-relay"
+relay_src="$(cd "${PROJECT_TOP}/../../${project_name}" && pwd)"
 
 source ${DOCKER_TOP}/build-common.sh
