@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 usage() {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
 	echo "${name} - Builds TCI container image, Linux kernel, root file system images, runs test suites." >&2
 	echo "Usage: ${name} [flags]" >&2

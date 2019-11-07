@@ -107,6 +107,9 @@ test_build_ilp32() {
 		-C ${build_dir}/tests vdso-test \
 		-C ${src_dir} docker scripts
 
+	tar -vczf ${tests_dir}/ilp32-spec-cpu-archive.tar.gz \
+		-C ${src_dir} build-spec-cpu.sh run-spec-cpu.sh
+
 	popd
 	echo "${FUNCNAME[0]}: Done, success." >&2
 }
@@ -163,6 +166,7 @@ test_run_ilp32() {
 
 	ilp32_run_sub_test "hello-world"
 	ilp32_run_sub_test "vdso-test"
+	ilp32_run_sub_test "spec-cpu"
 }
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}/.." && pwd)"}
