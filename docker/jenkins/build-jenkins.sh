@@ -28,6 +28,10 @@ extra_build_args="\
 	--build-arg host_docker_gid=$(stat --format=%g /var/run/docker.sock) \
 "
 
+build_on_exit() {
+	true
+}
+
 docker_build_setup() {
 	true
 }

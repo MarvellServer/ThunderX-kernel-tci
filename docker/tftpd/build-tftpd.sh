@@ -13,6 +13,10 @@ PROJECT_TOP="${DOCKER_TOP}/${project_name}"
 VERSION=${VERSION:-"1"}
 DOCKER_NAME=${DOCKER_NAME:-"tci-tftpd"}
 
+build_on_exit() {
+	true
+}
+
 docker_build_setup() {
 	true
 }
