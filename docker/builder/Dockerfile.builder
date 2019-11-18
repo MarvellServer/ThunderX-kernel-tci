@@ -45,6 +45,7 @@ RUN echo 'deb-src http://deb.debian.org/debian buster main' >> /etc/apt/sources.
 		tftp-hpa \
 		vim \
 		wget \
+		zypper \
 	&& apt-get -y build-dep linux \
 	&& DEBIAN_FRONTEND=noninteractive apt-get -y install \
 		g++-aarch64-linux-gnu \
