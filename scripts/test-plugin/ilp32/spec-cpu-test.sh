@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 #
-# generic test driver
+# spec-cpu test driver
 
 on_exit() {
 	local result=${1}
@@ -68,22 +68,7 @@ cp -a ${test_home}/${TEST_NAME}/ilp32-libraries/opt/ilp32/* /opt/ilp32/
 set +e
 {
 	echo 'test results:'
-	LD_SHOW_AUXV=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--lp64-static
-	LD_SHOW_AUXV=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--ilp32-static
-
-	ls -l /opt/ilp32/lib64/ld-2.30.so
-	file /opt/ilp32/lib64/ld-2.30.so
-	#/opt/ilp32/lib64/ld-2.30.so --list ${test_home}/${TEST_NAME}/${TEST_NAME}--lp64
-	LD_TRACE_LOADED_OBJECTS=1 LD_VERBOSE=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--lp64
-	LD_SHOW_AUXV=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--lp64
-	LD_DEBUG=libs ${test_home}/${TEST_NAME}/${TEST_NAME}--lp64
-
-	ls -l /opt/ilp32/libilp32/ld-2.30.so
-	file /opt/ilp32/libilp32/ld-2.30.so
-	#/opt/ilp32/libilp32/ld-2.30.so --list ${test_home}/${TEST_NAME}/${TEST_NAME}--ilp32
-	LD_TRACE_LOADED_OBJECTS=1 LD_VERBOSE=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--ilp32
-	LD_SHOW_AUXV=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--ilp32
-	LD_DEBUG=libs ${test_home}/${TEST_NAME}/${TEST_NAME}--ilp32
+	echo "${test_home}/${TEST_NAME}: TODO"
 } | tee -a ${log_file}
 
 result=${?}
