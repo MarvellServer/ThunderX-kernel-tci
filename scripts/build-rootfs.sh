@@ -115,9 +115,9 @@ on_fail() {
 
 	echo "${name}: Step ${current_step}: FAILED." >&2
 
-	${sudo} chown -R $(id --user --real --name): ${chroot}
-
 	cleanup_chroot ${chroot}
+
+	${sudo} chown -R $(id --user --real --name): ${chroot}
 
 	if [ -d "${mnt}" ]; then
 		clean_make_disk_img "${mnt}"
@@ -415,10 +415,10 @@ if [ ${step_bootstrap} ]; then
 	current_step="bootstrap"
 	echo "${name}: INFO: Step ${current_step} (${rootfs_type}): start." >&2
 
-	trap "on_fail ${bootstrap_dir} none" EXIT
 	sudo rm -rf ${bootstrap_dir}
 	mkdir -p ${bootstrap_dir}
 
+	trap "on_fail ${bootstrap_dir} none" EXIT
 	bootstrap_rootfs ${bootstrap_dir}
 	${sudo} chown -R $(id --user --real --name): ${bootstrap_dir}
 

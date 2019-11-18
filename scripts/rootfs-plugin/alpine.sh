@@ -111,7 +111,7 @@ setup_packages() {
 		set -e
 		apk add ${packages}
 		apk add efivar-libs --repository http://dl-3.alpinelinux.org/alpine/edge/community --allow-untrusted
-		apk add efibootmgr --repository http://dl-3.alpinelinux.org/alpine/edge/testing/ --allow-untrusted
+		apk add efibootmgr --repository http://dl-3.alpinelinux.org/alpine/edge/community --allow-untrusted
 		apk info | sort
 	"
 
