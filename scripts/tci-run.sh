@@ -480,9 +480,9 @@ test_types="${test_types//,/ }"
 kernel_repo=${kernel_repo:-"https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git"}
 kernel_branch=${kernel_branch:-"linux-5.2.y"}
 kernel_config=${kernel_config:-"defconfig"}
-kernel_repo_name="${kernel_repo##*/}"
-kernel_repo_name="${kernel_repo_name%.*}"
-kernel_src_dir=${kernel_src_dir:-"$(pwd)/${kernel_repo_name}"}
+
+kernel_repo_name=$(git_get_repo_name ${kernel_repo})
+kernel_src_dir=${kernel_src_dir:-"${top_build_dir}/${kernel_repo_name}"}
 kernel_build_dir="${top_build_dir}/${target_arch}-kernel-build"
 kernel_install_dir="${top_build_dir}/${target_arch}-kernel-install"
 

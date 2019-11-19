@@ -316,6 +316,32 @@ wait_pid() {
 	done
 }
 
+git_get_repo_name() {
+	local repo=${1}
+
+	if [[ "${repo: -1}" == "/" ]]; then
+		repo=${repo:0:-1}
+	fi
+
+	local repo_name="${repo##*/}"
+
+	if [[ "${repo_name:0:1}" == "." ]]; then
+		repo_name="${repo%/.*}"
+		repo_name="${repo_name##*/}"
+		echo "${repo_name}"
+		return
+	fi
+
+	repo_name="${repo_name%.*}"
+
+	if [[ -z "${repo_name}" ]]; then
+		echo "${name}: ERROR (${FUNCNAME[0]}): Bad repo: '${repo}'" >&2
+		exit 1
+	fi
+
+	echo "${repo_name}"
+}
+
 git_set_remote() {
 	local dir=${1}
 	local repo=${2}
@@ -340,14 +366,17 @@ git_checkout_safe() {
 	local repo=${2}
 	local branch=${3:-'master'}
 
+	local backup
+	backup="backup-$(date +%Y.%m.%d-%H.%M.%S)"
+
 	if [[ ! -f "${dir}/.git/config" ]]; then
-		mkdir -p "${dir}/.."
-		rm -rf ${dir}
+		if [[ -e ${dir} ]]; then
+			mv ${dir} ${dir}.${backup}
+		else
+			mkdir -p "${dir}/.."
+		fi
 		git clone ${repo} "${dir}"
 	else
-		local backup
-		backup="backup-$(date +%Y.%m.%d-%H.%M.%S)"
-
 		if [[ $(git -C ${dir} status --porcelain) ]]; then
 			echo "${name}: INFO: Found local changes: ${dir}." >&2
 			git -C ${dir} add .

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 usage () {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
 	echo "${name} - Upload Debian netboot installer to tftp server." >&2
 	echo "Usage: ${name} [flags]" >&2
