@@ -49,7 +49,7 @@ rootfs_type=${rootfs_type#ID=}
 	echo '-----------------------------'
 	echo 'set:'
 	set
-}  | tee -a ${log_file}
+} 2>&1 | tee -a ${log_file}
 
 tar -C ${test_home} -xf /ilp32-${TEST_NAME}-archive.tar.gz
 mkdir -p /opt/ilp32/
@@ -61,34 +61,62 @@ cp -a ${test_home}/${TEST_NAME}/ilp32-libraries/opt/ilp32/* /opt/ilp32/
 	cat ${test_home}/${TEST_NAME}/ilp32-libraries/opt/ilp32/info.txt
 	echo '-----------------------------'
 	echo 'manifest:'
-	find . -type f -ls
+	find . -type f -exec ls -l {} \;
 	echo '-----------------------------'
-} | tee -a ${log_file}
+} 2>&1 | tee -a ${log_file}
 
-set +e
-{
-	echo 'test results:'
-	LD_SHOW_AUXV=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--lp64-static
-	LD_SHOW_AUXV=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--ilp32-static
+run_test_progs() {
+	set +e
+	{
+		echo 'test results:'
 
-	ls -l /opt/ilp32/lib64/ld-2.30.so
-	file /opt/ilp32/lib64/ld-2.30.so
-	#/opt/ilp32/lib64/ld-2.30.so --list ${test_home}/${TEST_NAME}/${TEST_NAME}--lp64
-	LD_TRACE_LOADED_OBJECTS=1 LD_VERBOSE=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--lp64
-	LD_SHOW_AUXV=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--lp64
-	LD_DEBUG=libs ${test_home}/${TEST_NAME}/${TEST_NAME}--lp64
+		LD_SHOW_AUXV=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--lp64-static
+		LD_SHOW_AUXV=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--ilp32-static
 
-	ls -l /opt/ilp32/libilp32/ld-2.30.so
-	file /opt/ilp32/libilp32/ld-2.30.so
-	#/opt/ilp32/libilp32/ld-2.30.so --list ${test_home}/${TEST_NAME}/${TEST_NAME}--ilp32
-	LD_TRACE_LOADED_OBJECTS=1 LD_VERBOSE=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--ilp32
-	LD_SHOW_AUXV=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--ilp32
-	LD_DEBUG=libs ${test_home}/${TEST_NAME}/${TEST_NAME}--ilp32
-} | tee -a ${log_file}
+		echo '-----------------------------'
+		echo "strace (${TEST_NAME}--ilp32-static):"
+		strace ${test_home}/${TEST_NAME}/${TEST_NAME}--ilp32-static
+		echo '-----------------------------'
 
-result=${?}
+		ls -l /opt/ilp32/lib64/ld-2.30.so
+		file /opt/ilp32/lib64/ld-2.30.so
+		#/opt/ilp32/lib64/ld-2.30.so --list ${test_home}/${TEST_NAME}/${TEST_NAME}--lp64
+		LD_TRACE_LOADED_OBJECTS=1 LD_VERBOSE=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--lp64
+		LD_SHOW_AUXV=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--lp64
+		LD_DEBUG=libs ${test_home}/${TEST_NAME}/${TEST_NAME}--lp64
 
-set -e
+		ls -l /opt/ilp32/libilp32/ld-2.30.so
+		file /opt/ilp32/libilp32/ld-2.30.so
+		#/opt/ilp32/libilp32/ld-2.30.so --list ${test_home}/${TEST_NAME}/${TEST_NAME}--ilp32
+		LD_TRACE_LOADED_OBJECTS=1 LD_VERBOSE=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--ilp32
+		LD_SHOW_AUXV=1 ${test_home}/${TEST_NAME}/${TEST_NAME}--ilp32
+		LD_DEBUG=libs ${test_home}/${TEST_NAME}/${TEST_NAME}--ilp32
+
+		echo '-----------------------------'
+		echo "strace (${TEST_NAME}--ilp32):"
+		strace ${test_home}/${TEST_NAME}/${TEST_NAME}--ilp32
+		echo '-----------------------------'
+
+	} 2>&1 | tee -a ${log_file}
+
+	result=${?}
+	set -e
+}
+
+
+ulimit -s
+run_test_progs
+
+ulimit -s unlimited
+ulimit -s
+run_test_progs
+
+
+
+if grep "Segmentation fault" ${log_file}; then
+	echo "ilp32-${TEST_NAME}: ERROR: Segmentation fault detected." >&2
+	exit 1
+fi
 
 trap "on_exit 'Success.'" EXIT
 exit 0
