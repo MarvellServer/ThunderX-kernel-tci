@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
 usage () {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Runs a tci container.  If no command is provided, runs an interactive container." >&2
-	echo "Usage: ${name} [flags] -- [command] [args]" >&2
+	echo "${script_name} - Runs a tci container.  If no command is provided, runs an interactive container." >&2
+	echo "Usage: ${script_name} [flags] -- [command] [args]" >&2
 	echo "Option flags:" >&2
 	echo "  -a --docker-args    - Args for docker run. Default: '${docker_args}'" >&2
 	echo "  -h --help           - Show this help and exit." >&2
@@ -24,7 +25,7 @@ usage () {
 	echo "  TCI_TFTP_USER       - Default: '${TCI_TFTP_USER}'" >&2
 	echo "  TCI_TFTP_ROOT       - Default: '${TCI_TFTP_ROOT}'" >&2
 	echo "Examples:" >&2
-	echo "  ${name} -v" >&2
+	echo "  ${script_name} -v" >&2
 	eval "${old_xtrace}"
 }
 
@@ -33,10 +34,10 @@ process_opts() {
 	local long_opts="docker-args:,help,container-name:,no-sudoers,tag,verbose"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	if [ $? != 0 ]; then
-		echo "${name}: ERROR: Internal getopt" >&2
+		echo "${script_name}: ERROR: Internal getopt" >&2
 		exit 1
 	fi
 
@@ -75,7 +76,7 @@ process_opts() {
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -85,17 +86,17 @@ process_opts() {
 on_exit() {
 	local result=${1}
 
-	echo "${name}: ${result}" >&2
+	echo "${script_name}: ${result}" >&2
 }
 
 #===============================================================================
 # program start
 #===============================================================================
 
-name="${0##*/}"
+script_name="${0##*/}"
 
 if [ ${TCI_BUILDER} ]; then
-	echo "${name}: ERROR: Already in tci-builder." >&2
+	echo "${script_name}: ERROR: Already in tci-builder." >&2
 	exit 1
 fi
 
@@ -125,23 +126,23 @@ if [[ ${tag} ]]; then
 fi
 
 if [[ ! ${TCI_CHECKOUT_SERVER} ]]; then
-	echo "${name}: ERROR: TCI_CHECKOUT_SERVER not defined." >&2
+	echo "${script_name}: ERROR: TCI_CHECKOUT_SERVER not defined." >&2
 	usage
 	exit 1
 fi
 if [[ ! ${TCI_RELAY_SERVER} ]]; then
-	echo "${name}: ERROR: TCI_RELAY_SERVER not defined." >&2
+	echo "${script_name}: ERROR: TCI_RELAY_SERVER not defined." >&2
 	usage
 	exit 1
 fi
 if [[ ! ${TCI_TFTP_SERVER} ]]; then
-	echo "${name}: ERROR: TCI_TFTP_SERVER not defined." >&2
+	echo "${script_name}: ERROR: TCI_TFTP_SERVER not defined." >&2
 	usage
 	exit 1
 fi
 
 if [[ ! ${SSH_AUTH_SOCK} ]]; then
-	echo "${name}: ERROR: SSH_AUTH_SOCK not defined." >&2
+	echo "${script_name}: ERROR: SSH_AUTH_SOCK not defined." >&2
 fi
 
 if [[ $(echo "${docker_args}" | egrep ' -w ') ]]; then
@@ -171,7 +172,7 @@ add_server ${TCI_CHECKOUT_SERVER}
 add_server ${TCI_RELAY_SERVER}
 add_server ${TCI_TFTP_SERVER}
 
-echo "${name}: TCI_TARGET_BMC_LIST = '${TCI_TARGET_BMC_LIST}'." >&2
+echo "${script_name}: TCI_TARGET_BMC_LIST = '${TCI_TARGET_BMC_LIST}'." >&2
 for s in ${TCI_TARGET_BMC_LIST}; do
 	add_server ${s}
 done

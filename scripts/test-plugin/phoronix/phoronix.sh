@@ -6,7 +6,8 @@ source ${SCRIPTS_TOP}/lib/util.sh
 source ${SCRIPTS_TOP}/lib/chroot.sh
 
 test_usage_phoronix() {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
 	echo "  ${BASH_SOURCE##*/} - Phoronix Test Suite." >&2
 	echo "    The Phoronix Test Suite itself is an open-source framework for conducting automated"

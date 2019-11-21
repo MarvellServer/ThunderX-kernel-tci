@@ -2,7 +2,7 @@
 
 set -e
 
-name="${0##*/}"
+script_name="${0##*/}"
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "${BASH_SOURCE%/*}" && pwd )"}
 
@@ -10,10 +10,11 @@ source ${SCRIPTS_TOP}/lib/util.sh
 source ${SCRIPTS_TOP}/lib/relay.sh
 
 usage () {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Write systemd debug args to a kernel image." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Write systemd debug args to a kernel image." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -h --help         - Show this help and exit." >&2
 	echo "  -i --in-file      - Kernel image. Default: '${in_file}'." >&2
@@ -25,10 +26,10 @@ usage () {
 short_opts="hi:o:v"
 long_opts="help,in-file:,out-file:,verbose"
 
-opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 if [ $? != 0 ]; then
-	echo "${name}: ERROR: Internal getopt" >&2
+	echo "${script_name}: ERROR: Internal getopt" >&2
 	exit 1
 fi
 
@@ -58,7 +59,7 @@ while true ; do
 		break
 		;;
 	*)
-		echo "${name}: ERROR: Internal opts: '${@}'" >&2
+		echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 		exit 1
 		;;
 	esac
@@ -72,7 +73,7 @@ if [[ ${usage} ]]; then
 fi
 
 if [[ ! ${in_file} ]]; then
-	echo "${name}: ERROR: Must provide --in-file option." >&2
+	echo "${script_name}: ERROR: Must provide --in-file option." >&2
 	usage
 	exit 1
 fi
@@ -82,7 +83,7 @@ check_file "${in_file}"
 on_exit() {
 	local result=${1}
 
-	echo "${name}: ${result}" >&2
+	echo "${script_name}: ${result}" >&2
 }
 
 trap "on_exit 'Done, failed.'" EXIT
@@ -127,7 +128,7 @@ for pair in "${args[@]}"; do
 	result=${?}
 
 	if [[ ${result} -ne 0 ]]; then
-		echo "${name}: ERROR: Kernel command line arg not found: '${old_txt}'." >&2
+		echo "${script_name}: ERROR: Kernel command line arg not found: '${old_txt}'." >&2
 		echo "Kernel strings:" >&2
 		egrep --text 'systemd.' ${in_file} >&2
 		egrep --text  --max-count=1 'chosen.*bootargs' ${in_file} >&2
@@ -147,6 +148,6 @@ rm -f ${tmp_file}
 
 trap - EXIT
 
-echo "${name}: INFO: Output kernel: '${out_file}'" >&2
+echo "${script_name}: INFO: Output kernel: '${out_file}'" >&2
 
 on_exit 'Done, success.'

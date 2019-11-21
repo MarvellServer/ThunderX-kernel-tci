@@ -5,7 +5,8 @@ SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}/.." && pwd)"}
 source ${SCRIPTS_TOP}/lib/util.sh
 
 test_usage_unixbench() {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
 	echo "  ${BASH_SOURCE##*/} - UnixBench - The original BYTE UNIX benchmark suite." >&2
 	echo "    The purpose of UnixBench is to provide a basic indicator of the performance"

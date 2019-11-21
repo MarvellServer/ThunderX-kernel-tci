@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
 usage () {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Upload Fedora netboot installer to tftp server." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Upload Fedora netboot installer to tftp server." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -c --config-file - Config file. Default: '${config_file}'." >&2
 	echo "  -h --help        - Show this help and exit." >&2
@@ -22,7 +23,7 @@ process_opts() {
 	local long_opts="config-file:,help,host:,release:,tftp-server:,type:,verbose"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	eval set -- "${opts}"
 
@@ -62,7 +63,7 @@ process_opts() {
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -72,7 +73,7 @@ process_opts() {
 on_exit() {
 	local result=${1}
 
-	echo "${name}: Done: ${result}" >&2
+	echo "${script_name}: Done: ${result}" >&2
 }
 
 
@@ -129,7 +130,7 @@ return ${?}
 # program start
 #===============================================================================
 
-name="${0##*/}"
+script_name="${0##*/}"
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "${BASH_SOURCE%/*}" && pwd )"}
 JENKINS_TOP=${DOCKER_TOP:-"$( cd "${SCRIPTS_TOP}/../jenkins" && pwd )"}
 
@@ -147,13 +148,13 @@ check_file ${config_file} " --config-file" "usage"
 source ${config_file}
 
 if [[ ! ${tftp_server} ]]; then
-	echo "${name}: ERROR: No tftp_server entry: '${config_file}'" >&2
+	echo "${script_name}: ERROR: No tftp_server entry: '${config_file}'" >&2
 	usage
 	exit 1
 fi
 
 if [[ ! ${host} ]]; then
-	echo "${name}: ERROR: No host entry: '${config_file}'" >&2
+	echo "${script_name}: ERROR: No host entry: '${config_file}'" >&2
 	usage
 	exit 1
 fi
@@ -180,11 +181,11 @@ daily)
 	sums_url="https://d-i.debian.org/daily-images/arm64/${release}"
 	;;
 sid)
-	echo "${name}: ERROR: No sid support yet." >&2
+	echo "${script_name}: ERROR: No sid support yet." >&2
 	exit 1
 	;;
 *)
-	echo "${name}: ERROR: Unknown type '${type}'" >&2
+	echo "${script_name}: ERROR: Unknown type '${type}'" >&2
 	usage
 	exit 1
 	;;
@@ -202,7 +203,7 @@ result=${?}
 set -e
 
 
-echo "${name}: ${host} files ready on ${tftp_server}." >&2
+echo "${script_name}: ${host} files ready on ${tftp_server}." >&2
 
 trap "on_exit 'success.'" EXIT
 

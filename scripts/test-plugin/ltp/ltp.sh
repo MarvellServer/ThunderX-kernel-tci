@@ -6,7 +6,8 @@ source ${SCRIPTS_TOP}/lib/util.sh
 source ${SCRIPTS_TOP}/lib/chroot.sh
 
 test_usage_ltp() {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
 	echo "  ${BASH_SOURCE##*/} - Linux Kernel Selftests." >&2
 	echo "    The LTP testsuite contains a collection of tools for testing the Linux kernel"

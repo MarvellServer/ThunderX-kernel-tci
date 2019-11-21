@@ -11,10 +11,11 @@
 #  ffff00001ed21078 g O .bss       0000000000000008 initrd_start
 
 usage() {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Embed initrd into kernel (work in progress)." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Embed initrd into kernel (work in progress)." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -h --help    - Show this help and exit." >&2
 	echo "  -v --verbose - Verbose execution." >&2
@@ -30,7 +31,7 @@ process_opts() {
 	local long_opts="help,verbose,arch:,kernel:,initrd:,out-file:"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	eval set -- "${opts}"
 
@@ -66,7 +67,7 @@ process_opts() {
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -80,7 +81,7 @@ on_exit() {
 		rm -rf ${tmp_dir}
 	fi
 
-	echo "${name}: ${result}" >&2
+	echo "${script_name}: ${result}" >&2
 }
 
 embed_initrd() {
@@ -115,7 +116,7 @@ embed_initrd() {
 
 set -e
 
-name="${0##*/}"
+script_name="${0##*/}"
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "${BASH_SOURCE%/*}" && pwd )"}
 
@@ -148,11 +149,11 @@ arm64|aarch64)
 amd64|x86_64)
 	target_arch="x86_64"
 	target_tool_prefix=${target_tool_prefix:-"x86_64-linux-gnu-"}
-	echo "${name}: ERROR: Unsupported target arch '${target_arch}'.  Must be arm64." >&2
+	echo "${script_name}: ERROR: Unsupported target arch '${target_arch}'.  Must be arm64." >&2
 	exit 1
 	;;
 *)
-	echo "${name}: ERROR: Unsupported target arch '${target_arch}'.  Must be arm64." >&2
+	echo "${script_name}: ERROR: Unsupported target arch '${target_arch}'.  Must be arm64." >&2
 	exit 1
 	;;
 esac
@@ -164,7 +165,7 @@ check_file "${kernel}"
 check_opt 'initrd' ${initrd}
 check_file "${initrd}"
 
-tmp_dir="$(mktemp --tmpdir --directory ${name}.XXXX)"
+tmp_dir="$(mktemp --tmpdir --directory ${script_name}.XXXX)"
 initrd_elf="${tmp_dir}/initrd.elf"
 
 embed_initrd
@@ -175,6 +176,6 @@ ${target_tool_prefix}objdump --syms ${kernel} > ${out_file}.orig.syms
 ${target_tool_prefix}objdump --syms ${initrd_elf} > ${out_file}.initrd.syms
 ${target_tool_prefix}objdump --syms ${out_file} > ${out_file}.syms
 
-echo "${name}: INFO: Output file: '${out_file}'." >&2
+echo "${script_name}: INFO: Output file: '${out_file}'." >&2
 trap "on_exit 'Done, success.'" EXIT
 exit 0

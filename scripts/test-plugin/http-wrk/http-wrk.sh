@@ -5,7 +5,8 @@ SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}/.." && pwd)"}
 source ${SCRIPTS_TOP}/lib/util.sh
 
 test_usage_http_wrk() {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
 	echo "  ${BASH_SOURCE##*/} - wrk - a HTTP benchmarking tool." >&2
 	echo "    wrk is a modern HTTP benchmarking tool capable of generating significant"

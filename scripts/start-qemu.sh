@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
 usage() {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Run Linux kernel in QEMU." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Run Linux kernel in QEMU." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -a --arch              - Target architecture. Default: '${target_arch}'." >&2
 	echo "  -c --kernel-cmd        - Kernel command line options. Default: '${kernel_cmd}'." >&2
@@ -34,10 +35,10 @@ kernel:,modules:,out-file:,systemd-debug,qemu-tap,verbose,\
 hda:,hdb:,hdc:,hda-boot,pid-file:,p9-share:"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	if [ $? != 0 ]; then
-		echo "${name}: ERROR: Internal getopt" >&2
+		echo "${script_name}: ERROR: Internal getopt" >&2
 		exit 1
 	fi
 
@@ -123,7 +124,7 @@ hda:,hdb:,hdc:,hda-boot,pid-file:,p9-share:"
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -163,13 +164,13 @@ setup_efi() {
 on_exit() {
 	local result=${1}
 
-	echo "${name}: Done: ${result}" >&2
+	echo "${script_name}: Done: ${result}" >&2
 }
 
 #===============================================================================
 # program start
 #===============================================================================
-name="${0##*/}"
+script_name="${0##*/}"
 
 trap "on_exit 'failed.'" EXIT
 set -e
@@ -204,19 +205,19 @@ case ${target_arch} in
 arm64|ppc*)
 	;;
 *)
-	echo "${name}: ERROR: Unsupported target arch '${target_arch}'." >&2
+	echo "${script_name}: ERROR: Unsupported target arch '${target_arch}'." >&2
 	exit 1
 	;;
 esac
 
 if [[ ! ${hda_boot} && ! ${kernel} ]] || [[ ${hda_boot} && ${kernel} ]]; then
-	echo "${name}: ERROR: Must provide either --kernel or --hda-boot option." >&2
+	echo "${script_name}: ERROR: Must provide either --kernel or --hda-boot option." >&2
 	usage
 	exit 1
 fi
 
 if [[ ${hda_boot} && ${initrd} ]]; then
-	echo "${name}: ERROR: Must provide either --initrd or --hda-boot option." >&2
+	echo "${script_name}: ERROR: Must provide either --initrd or --hda-boot option." >&2
 	usage
 	exit 1
 fi
@@ -250,7 +251,7 @@ amd64--ppc*)
 	qemu_args+=" -machine pseries,cap-htm=off -m 2048"
 	;;
 *)
-	echo "${name}: ERROR: Unsupported host--target combo: '${host_arch}--${target_arch}'." >&2
+	echo "${script_name}: ERROR: Unsupported host--target combo: '${host_arch}--${target_arch}'." >&2
 	exit 1
 	;;
 esac
@@ -264,7 +265,7 @@ if [[ ${qemu_tap} ]]; then
 	"
 else
 	ssh_fwd=$(( ${hostfwd_offset} + 22 ))
-	echo "${name}: SSH fwd = ${ssh_fwd}" >&2
+	echo "${script_name}: SSH fwd = ${ssh_fwd}" >&2
 
 	# FIXME: When is -nic unsupported?
 	if [[ ${use_virtio_net} ]]; then
@@ -312,7 +313,7 @@ if [[ ${p9_share} ]]; then
 	check_directory "${p9_share}"
 	qemu_args+=" \
 		-virtfs local,id=${P9_SHARE_ID},path=${p9_share},security_model=none,mount_tag=${P9_SHARE_ID}"
-	echo "${name}: INFO: 'mount -t 9p -o trans=virtio ${P9_SHARE_ID} <mount-point> -oversion=9p2000.L'" >&2
+	echo "${script_name}: INFO: 'mount -t 9p -o trans=virtio ${P9_SHARE_ID} <mount-point> -oversion=9p2000.L'" >&2
 fi
 
 if [[ ${modules} ]]; then

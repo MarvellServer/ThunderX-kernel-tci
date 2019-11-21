@@ -18,7 +18,7 @@ relay_verify_triple() {
 	local triple=${1}
 
 	if ! relay_test_triple ${triple}; then
-		echo "${name}: ERROR: Bad triple: '${triple}'" >&2
+		echo "${script_name}: ERROR: Bad triple: '${triple}'" >&2
 		exit 1
 	fi
 }
@@ -129,7 +129,7 @@ relay_get() {
 	local token
 	relay_split_triple ${triple} server port token
 
-	echo "${name}: relay client: Waiting ${timeout}s for msg at ${server}:${port}..." >&2
+	echo "${script_name}: relay client: Waiting ${timeout}s for msg at ${server}:${port}..." >&2
 
 	SECONDS=0
 	local reply_msg
@@ -143,36 +143,36 @@ relay_get() {
 
 	local boot_time="$(sec_to_min ${SECONDS})"
 
-	echo "${name}: reply_result='${reply_result}'" >&2
-	echo "${name}: reply_msg='${reply_msg}'" >&2
+	echo "${script_name}: reply_result='${reply_result}'" >&2
+	echo "${script_name}: reply_msg='${reply_msg}'" >&2
 
 	if [[ ${reply_result} -eq 124 || ! ${reply_msg} ]]; then
-		echo "${name}: relay_get failed: timed out ${timeout}" >&2
+		echo "${script_name}: relay_get failed: timed out ${timeout}" >&2
 		return 1
 	fi
 
 	if [[ ${reply_result} -ne 0 ]]; then
-		echo "${name}: relay_get failed: command failed: ${reply_result}" >&2
+		echo "${script_name}: relay_get failed: command failed: ${reply_result}" >&2
 		return ${reply_result}
 	fi
 
 	if [[ ${reply_result} -ne 0 ]]; then
-		echo "${name}: relay_get failed: command failed: ${reply_result}" >&2
+		echo "${script_name}: relay_get failed: command failed: ${reply_result}" >&2
 		return ${reply_result}
 	fi
 
-	echo "${name}: reply_msg='${reply_msg}'" >&2
+	echo "${script_name}: reply_msg='${reply_msg}'" >&2
 	local cmd
 	relay_split_reply ${reply_msg} cmd _relay_get__remote_addr
 
 	if [[ "${cmd}" != 'OK-' ]]; then
-		echo "${name}: relay_get failed: ${reply_msg}" >&2
+		echo "${script_name}: relay_get failed: ${reply_msg}" >&2
 		_relay_get__remote_addr="server-error"
 		return 1
 	fi
 
-	echo "${name}: Received msg from '${_relay_get__remote_addr}" >&2
-	echo "${name}: ${_relay_get__remote_addr} boot time = ${boot_time} min" >&2
+	echo "${script_name}: Received msg from '${_relay_get__remote_addr}" >&2
+	echo "${script_name}: ${_relay_get__remote_addr} boot time = ${boot_time} min" >&2
 }
 
 TCI_RELAY_SERVER=${TCI_RELAY_SERVER:-"tci-relay"}

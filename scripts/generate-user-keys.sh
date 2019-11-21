@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
 usage () {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Generate user keys for UEFI secure boot." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Generate user keys for UEFI secure boot." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -f --force               - Overwrite existing keys." >&2
 	echo "  -h --help                - Show this help and exit." >&2
@@ -19,7 +20,7 @@ process_opts() {
 	local long_opts="force,help,out-dir:,cert-subject:,verbose"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	eval set -- "${opts}"
 
@@ -52,7 +53,7 @@ process_opts() {
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -63,7 +64,7 @@ on_exit() {
 	local result=${1}
 
 	set +x
-	echo "${name}: Done: ${result}" >&2
+	echo "${script_name}: Done: ${result}" >&2
 }
 
 print_cert_der() {
@@ -83,17 +84,17 @@ generate_user_keys() {
 	local cert_subject=${2}
 
 	local uefi_certs="${out_dir}/uefi-certs"
-	local log_file="${out_dir}/${name}.log"
+	local log_file="${out_dir}/${script_name}.log"
 
 	if [[ -d ${out_dir} ]]; then
 		if [[ ! ${force} ]]; then
-			echo "${name}: ERROR: Output directory '${out_dir}' exists.  Will not overwrite." >&2
+			echo "${script_name}: ERROR: Output directory '${out_dir}' exists.  Will not overwrite." >&2
 			usage
 			exit 1
 		else
 			bak_dir="${out_dir}-$(date +%Y.%m.%d-%H.%M.%S)"
 			mv ${out_dir} ${bak_dir}
-			echo "${name}: INFO: Old keys saved to '${bak_dir}'." >&2
+			echo "${script_name}: INFO: Old keys saved to '${bak_dir}'." >&2
 		fi
 	fi
 
@@ -139,7 +140,7 @@ generate_user_keys() {
 export PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[0;37m\]'
 set -e
 
-name="${0##*/}"
+script_name="${0##*/}"
 trap "on_exit 'failed.'" EXIT
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}

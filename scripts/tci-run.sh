@@ -4,12 +4,12 @@ usage() {
 	local old_xtrace
 	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Builds TCI container image, Linux kernel, root file system images, runs test suites." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Builds TCI container image, Linux kernel, root file system images, runs test suites." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  --arch            - Target architecture. Default: ${target_arch}." >&2
 	echo "  -a --help-all     - Show test help and exit." >&2
-	echo "  -c --config-file  - ${name} config file. Default: '${config_file}'." >&2
+	echo "  -c --config-file  - ${script_name} config file. Default: '${config_file}'." >&2
 	echo "  -h --help         - Show this help and exit." >&2
 	echo "  -v --verbose      - Verbose execution." >&2
 	echo "  --build-name      - Build name. Default: '${build_name}'." >&2
@@ -41,7 +41,8 @@ usage() {
 }
 
 test_usage() {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
 	echo "Test Plugin Info:" >&2
 	for test in ${known_test_types}; do
@@ -60,7 +61,7 @@ test-machine:,systemd-debug,rootfs-types:,test-types:,\
 enter,build-kernel,build-bootstrap,build-rootfs,build-tests,run-tests"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	eval set -- "${opts}"
 
@@ -153,7 +154,7 @@ enter,build-kernel,build-bootstrap,build-rootfs,build-tests,run-tests"
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -177,10 +178,10 @@ on_exit() {
 	fi
 
 	set +x
-	echo "${name}: start time: ${start_time}" >&2
-	echo "${name}: end time:   ${end_time}" >&2
-	echo "${name}: duration:   ${end_sec} seconds (${end_min} min)" >&2
-	echo "${name}: Done:       ${result}" >&2
+	echo "${script_name}: start time: ${start_time}" >&2
+	echo "${script_name}: end time:   ${end_time}" >&2
+	echo "${script_name}: duration:   ${end_sec} seconds (${end_min} min)" >&2
+	echo "${script_name}: Done:       ${result}" >&2
 }
 
 check_rootfs_types() {
@@ -202,7 +203,7 @@ check_rootfs_types() {
 			fi
 		done
 		if [[ "${found}" != "y" ]]; then
-			echo "${name}: ERROR: Unknown rootfs-type '${given}'." >&2
+			echo "${script_name}: ERROR: Unknown rootfs-type '${given}'." >&2
 			exit 1
 		fi
 		#echo "${FUNCNAME[0]}: Found '${given}'." >&2
@@ -232,7 +233,7 @@ check_test_types() {
 			fi
 		done
 		if [[ "${found}" != "y" ]]; then
-			echo "${name}: ERROR: Unknown test-type '${given}'." >&2
+			echo "${script_name}: ERROR: Unknown test-type '${given}'." >&2
 			usage
 			exit 1
 		fi
@@ -385,7 +386,7 @@ run_tests() {
 	local tests_dir=${3}
 	local results_dir=${4}
 
-	echo "${name}: run_tests: ${test_machine}" >&2
+	echo "${script_name}: run_tests: ${test_machine}" >&2
 
 	check_file ${kernel}
 	check_directory ${image_dir}
@@ -424,7 +425,7 @@ run_tests() {
 # program start
 #===============================================================================
 export PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[0;37m\]'
-name="${0##*/}"
+script_name="${0##*/}"
 
 trap "on_exit '[setup] failed.'" EXIT
 set -e
@@ -440,7 +441,7 @@ for test in ${known_test_types}; do
 	if [[ -f ${SCRIPTS_TOP}/test-plugin/${test}/${test}.sh ]]; then
 		source ${SCRIPTS_TOP}/test-plugin/${test}/${test}.sh
 	else
-		echo "${name}: ERROR: Test plugin '${test}.sh' not found." >&2
+		echo "${script_name}: ERROR: Test plugin '${test}.sh' not found." >&2
 		exit 1
 	fi
 done
@@ -518,7 +519,7 @@ fi
 
 if [[ ${TCI_BUILDER} ]]; then
 	if [[ ${step_enter} ]]; then
-		echo "${name}: ERROR: Already in tci-builder." >&2
+		echo "${script_name}: ERROR: Already in tci-builder." >&2
 		exit 1
 	fi
 else
@@ -527,7 +528,7 @@ else
 
 	${DOCKER_TOP}/builder/build-builder.sh
 
-	echo "${name}: Entering ${build_name} container..." >&2
+	echo "${script_name}: Entering ${build_name} container..." >&2
 
 	if [[ ${step_enter} ]]; then
 		docker_cmd="/bin/bash"
@@ -563,7 +564,7 @@ ${step_build_rootfs:-"0"}${step_build_tests:-"0"}${step_run_tests:-"0"}\
 ${step_run_remote_tests:-"0"}"
 
 if [[ "${step_code}" == "000000" ]]; then
-	echo "${name}: ERROR: No step options provided." >&2
+	echo "${script_name}: ERROR: No step options provided." >&2
 	usage
 	exit 1
 fi
@@ -602,7 +603,7 @@ for rootfs_type in ${rootfs_types}; do
 		tests_dir=${output_prefix}.tests
 		results_dir=${output_prefix}.results
 	
-		echo "${name}: INFO: ${test_name} => ${output_prefix}" >&2
+		echo "${script_name}: INFO: ${test_name} => ${output_prefix}" >&2
 
 		if [[ ${step_build_rootfs} ]]; then
 			trap "on_exit '[build_rootfs] failed.'" EXIT

@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
 usage () {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Convert ld scripts to relative or absolute paths." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Convert ld scripts to relative or absolute paths." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -a --absolute  - Convert to absolute paths.  Default: '${absolute}'." >&2
 	echo "  -d --dry-run   - Do not execute commands.  Default: '${dry_run}'." >&2
@@ -20,7 +21,7 @@ process_opts() {
 	local long_opts="absolute,dry-run,help,root-dir:,start-dir:,verbose"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	eval set -- "${opts}"
 
@@ -57,7 +58,7 @@ process_opts() {
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -72,7 +73,7 @@ on_exit() {
 	fi
 
 	set +x
-	echo "${name}: Done: ${result}" >&2
+	echo "${script_name}: Done: ${result}" >&2
 }
 
 
@@ -80,10 +81,10 @@ on_exit() {
 # program start
 #===============================================================================
 export PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[0;37m\]'
-set -e
+script_name="${0##*/}"
 
-name="${0##*/}"
 trap "on_exit 'failed.'" EXIT
+set -e
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
 source ${SCRIPTS_TOP}/lib/util.sh
@@ -104,7 +105,7 @@ check_opt 'start-dir' "${start_dir}"
 check_directory "${start_dir}" "" "usage"
 start_dir="$(realpath ${start_dir})"
 
-tmp_dir="$(mktemp --tmpdir --directory ${name}.XXXX)"
+tmp_dir="$(mktemp --tmpdir --directory ${script_name}.XXXX)"
 
 # FIXME: Need to fixup /etc/ld.so.conf?
 
@@ -115,7 +116,7 @@ for file in ${files}; do
 		continue
 	fi
 
-	echo "${name}: ${file}" >&2
+	echo "${script_name}: ${file}" >&2
 
 	while read -r line_in; do
 		if [[ "${line_in:0:5}" != "GROUP" ]]; then
@@ -133,8 +134,8 @@ for file in ${files}; do
 					fi
 				fi
 			done
-			echo "${name}:  in:  ${line_in}" >&2
-			echo "${name}:  out: ${line_out}" >&2
+			echo "${script_name}:  in:  ${line_in}" >&2
+			echo "${script_name}:  out: ${line_out}" >&2
 			echo "${line_out}" >> ${tmp_dir}/1
 		fi
 	done < "${file}"

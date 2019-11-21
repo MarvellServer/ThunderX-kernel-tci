@@ -2,13 +2,14 @@
 
 set -e
 
-name="${0##*/}"
+script_name="${0##*/}"
 
 usage () {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Enter tci-jenkins.server container." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Enter tci-jenkins.server container." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -c --clean          - Clean kernel rootfs files." >&2
 	echo "  -h --help           - Show this help and exit." >&2
@@ -19,10 +20,10 @@ usage () {
 short_opts="chv"
 long_opts="clean,help,verbose"
 
-opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 if [ $? != 0 ]; then
-	echo "${name}: ERROR: Internal getopt" >&2
+	echo "${script_name}: ERROR: Internal getopt" >&2
 	exit 1
 fi
 
@@ -49,7 +50,7 @@ while true ; do
 		break
 		;;
 	*)
-		echo "${name}: ERROR: Internal opts: '${@}'" >&2
+		echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 		exit 1
 		;;
 	esac

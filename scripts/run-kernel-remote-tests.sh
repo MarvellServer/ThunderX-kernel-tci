@@ -2,7 +2,7 @@
 
 set -e
 
-name="${0##*/}"
+script_name="${0##*/}"
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "${BASH_SOURCE%/*}" && pwd )"}
 
@@ -11,10 +11,11 @@ source ${SCRIPTS_TOP}/lib/ipmi.sh
 source ${SCRIPTS_TOP}/lib/relay.sh
 
 usage () {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Run Linux kernel tests on remote machine." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Run Linux kernel tests on remote machine." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -h --help           - Show this help and exit." >&2
 	echo "  -i --initrd         - Initrd image. Default: '${initrd}'." >&2
@@ -41,7 +42,7 @@ out-file:,systemd-debug,verbose,\
 bmc-host:,relay-server:,result-file:,ssh-login-key:,test-name:,tests-dir:,\
 tftp-triple:"
 
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	eval set -- "${opts}"
 
@@ -113,7 +114,7 @@ tftp-triple:"
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -135,7 +136,8 @@ on_exit() {
 		rm -f ${test_kernel}
 	fi
 
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
 	echo '*** on_exit ***'
 	echo "*** result      = @${result}@" >&2
@@ -162,7 +164,7 @@ on_exit() {
 		${SCRIPTS_TOP}/checkin.sh ${checkout_token}
 	fi
 
-	echo "${name}: ${result}" >&2
+	echo "${script_name}: ${result}" >&2
 }
 
 #===============================================================================
@@ -184,7 +186,7 @@ relay_token=$(relay_triple_to_token ${relay_triple})
 
 if [[ ! ${bmc_host} ]]; then
 	bmc_host="${test_machine}-bmc"
-	echo "${name}: INFO: BMC host: '${bmc_host}'" >&2
+	echo "${script_name}: INFO: BMC host: '${bmc_host}'" >&2
 fi
 
 if [[ ${usage} ]]; then
@@ -233,7 +235,7 @@ if [[ "${tmp_kernel}" != ${kernel} ]]; then
 fi
 
 if [[ "${test_machine}" == "qemu" ]]; then
-	echo "${name}: ERROR: '--test-machine=qemu' not yet supported." >&2
+	echo "${script_name}: ERROR: '--test-machine=qemu' not yet supported." >&2
 	exit 1
 fi
 
@@ -244,7 +246,7 @@ set -e
 
 if [[ ${result} -ne 0 ]]; then
 	unset checkout_token
-	echo "${name}: ERROR: checkout '${test_machine}' failed (${result})." >&2
+	echo "${script_name}: ERROR: checkout '${test_machine}' failed (${result})." >&2
 	exit 1
 fi
 
@@ -260,17 +262,17 @@ ${SCRIPTS_TOP}/tftp-upload.sh --kernel=${test_kernel} --initrd=${initrd} \
 old_xtrace="$(shopt -po xtrace || :)"
 set +o xtrace
 if [[ ! ${TCI_BMC_CREDS_USR} || ! ${TCI_BMC_CREDS_PSW} ]]; then
-	echo "${name}: Using creds file ${test_machine}-bmc-creds" >&2
+	echo "${script_name}: Using creds file ${test_machine}-bmc-creds" >&2
 	check_file "${test_machine}-bmc-creds" ': Need environment variables or credentials file [user:passwd]'
 	TCI_BMC_CREDS_USR="$(cat ${test_machine}-bmc-creds | cut -d ':' -f 1)"
 	TCI_BMC_CREDS_PSW="$(cat ${test_machine}-bmc-creds | cut -d ':' -f 2)"
 fi
 if [[ ! ${TCI_BMC_CREDS_USR}  ]]; then
-	echo "${name}: ERROR: No TCI_BMC_CREDS_USR defined." >&2
+	echo "${script_name}: ERROR: No TCI_BMC_CREDS_USR defined." >&2
 	exit 1
 fi
 if [[ ! ${TCI_BMC_CREDS_PSW}  ]]; then
-	echo "${name}: ERROR: No TCI_BMC_CREDS_PSW defined." >&2
+	echo "${script_name}: ERROR: No TCI_BMC_CREDS_PSW defined." >&2
 	exit 1
 fi
 export IPMITOOL_PASSWORD="${TCI_BMC_CREDS_PSW}"
@@ -300,7 +302,7 @@ echo "sol_pid=${sol_pid}" >&2
 
 sleep 5s
 if ! kill -0 ${sol_pid} &> /dev/null; then
-	echo "${name}: ERROR: ipmitool sol seems to have quit early." >&2
+	echo "${script_name}: ERROR: ipmitool sol seems to have quit early." >&2
 	exit 1
 fi
 
@@ -310,7 +312,7 @@ ipmi_power_on "${ipmi_args}"
 
 relay_get "420" "${relay_triple}" remote_addr
 
-echo "${name}: remote_addr = '${remote_addr}'" >&2
+echo "${script_name}: remote_addr = '${remote_addr}'" >&2
 
 remote_host="root@${remote_addr}"
 remote_ssh_opts=''
@@ -321,7 +323,7 @@ ssh_no_check="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 if [[ -f ${SCRIPTS_TOP}/test-plugin/${test_name}/${test_name}.sh ]]; then
 	source ${SCRIPTS_TOP}/test-plugin/${test_name}/${test_name}.sh
 else
-	echo "${name}: ERROR: Test plugin '${test_name}.sh' not found." >&2
+	echo "${script_name}: ERROR: Test plugin '${test_name}.sh' not found." >&2
 	exit 1
 fi
 
@@ -331,7 +333,7 @@ test_run_${test_name/-/_} ${tests_dir} ${test_machine} ${remote_host} run_ssh_op
 ssh ${ssh_no_check} -i ${ssh_login_key} ${remote_ssh_opts} ${remote_host} \
 	'/sbin/poweroff &'
 
-echo "${name}: Waiting for shutdown at ${remote_addr}..." >&2
+echo "${script_name}: Waiting for shutdown at ${remote_addr}..." >&2
 
 ipmi_wait_power_state "${ipmi_args}" 'off' 120
 

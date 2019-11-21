@@ -17,7 +17,7 @@ bootstrap_rootfs() {
 		debian_os_mirror=${debian_os_mirror:-"http://ftp.us.debian.org/debian"}
 		;;
 	*)
-		echo "${name}: ERROR: Unsupported target-arch '${target_arch}'." >&2
+		echo "${script_name}: ERROR: Unsupported target-arch '${target_arch}'." >&2
 		exit 1
 		;;
 	esac
@@ -136,12 +136,12 @@ setup_sshd() {
 	sshd_config "PermitEmptyPasswords" "yes"
 
 	if [[ ! -f "${rootfs}/etc/ssh/ssh_host_rsa_key" ]]; then
-		echo "${name}: ERROR: Not found: ${rootfs}/etc/ssh/ssh_host_rsa_key" >&2
+		echo "${script_name}: ERROR: Not found: ${rootfs}/etc/ssh/ssh_host_rsa_key" >&2
 		exit 1
 	fi
 
 	${sudo} cp -f ${rootfs}/etc/ssh/ssh_host_rsa_key ${srv_key}
-	echo "${name}: USER=@$(id --user --real --name)@" >&2
+	echo "${script_name}: USER=@$(id --user --real --name)@" >&2
 	#printenv
 	#${sudo} chown $(id --user --real --name): ${srv_key}
 }

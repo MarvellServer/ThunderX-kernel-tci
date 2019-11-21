@@ -17,7 +17,7 @@ ipmi_get_power_status() {
 		echo 'off'
 		;;
 	*)
-		echo "${name}: ERROR: Bad ipmi message '${msg}'" >&2
+		echo "${script_name}: ERROR: Bad ipmi message '${msg}'" >&2
 		exit 1
 		;;
 	esac
@@ -35,7 +35,7 @@ ipmi_wait_power_state() {
 	while [[ $(ipmi_get_power_status "${ipmi_args}") != "${state}" ]]; do
 		let count=count+5
 		if [[ count -gt ${timeout_sec} ]]; then
-			echo "${name}: ipmi_wait_power_state '${state}' ${ipmi_args} failed."
+			echo "${script_name}: ipmi_wait_power_state '${state}' ${ipmi_args} failed."
 			exit -1
 		fi
 		sleep 5s

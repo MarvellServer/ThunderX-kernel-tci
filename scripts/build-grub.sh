@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
 usage () {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Build grub bootloader." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Build grub bootloader." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -h --help       - Show this help and exit." >&2
 	echo "  --src-dir       - Top of sources. Default: '${src_dir}'." >&2
@@ -30,12 +31,12 @@ src-dir:,grub-src:,gnulib-src:,dest-dir:,grub-config:,mok-key:,mok-cert:,\
 git-clone,configure,build,mk-image,sign-image"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	eval set -- "${opts}"
 	
 	if [[ ${1} == '--' ]]; then
-		echo "${name}: ERROR: Must specify an option step." >&2
+		echo "${script_name}: ERROR: Must specify an option step." >&2
 		usage
 		exit 1
 	fi
@@ -100,7 +101,7 @@ git-clone,configure,build,mk-image,sign-image"
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -112,20 +113,20 @@ on_exit() {
 
 	local end_time=${SECONDS}
 	set +x
-	echo "${name}: Done: ${result}: ${end_time} sec ($(sec_to_min ${end_time}) min)" >&2
+	echo "${script_name}: Done: ${result}: ${end_time} sec ($(sec_to_min ${end_time}) min)" >&2
 }
 
 test_for_src() {
 	if [[ ! -d "${grub_src}/grub-core" ]]; then
-		echo -e "${name}: ERROR: Bad grub_src: '${grub_src}'" >&2
-		echo -e "${name}: ERROR: Must set grub_src to root of grub sources." >&2
+		echo -e "${script_name}: ERROR: Bad grub_src: '${grub_src}'" >&2
+		echo -e "${script_name}: ERROR: Must set grub_src to root of grub sources." >&2
 		usage
 		exit 1
 	fi
 
 	if [[ ! -f "${gnulib_src}/gnulib-tool" ]]; then
-		echo -e "${name}: ERROR: Bad gnulib_src: '${gnulib_src}'" >&2
-		echo -e "${name}: ERROR: Must set gnulib_src to root of gnulib sources." >&2
+		echo -e "${script_name}: ERROR: Bad gnulib_src: '${gnulib_src}'" >&2
+		echo -e "${script_name}: ERROR: Must set gnulib_src to root of gnulib sources." >&2
 		usage
 		exit 1
 	fi
@@ -167,7 +168,7 @@ mk_image() {
 	local config=${3}
 
 	if ! test -x "$(command -v ${mkstandalone})"; then
-		echo "${name}: ERROR: Please install '${mkstandalone}'." >&2
+		echo "${script_name}: ERROR: Please install '${mkstandalone}'." >&2
 		exit 1
 	fi
 
@@ -195,12 +196,12 @@ sign_image() {
 	local out_file=${4}
 
 	if ! test -x "$(command -v ${sbsign})"; then
-		echo "${name}: ERROR: Please install '${sbsign}'." >&2
+		echo "${script_name}: ERROR: Please install '${sbsign}'." >&2
 		exit 1
 	fi
 
 	if ! test -x "$(command -v ${sbverify})"; then
-		echo "${name}: ERROR: Please install '${sbverify}'." >&2
+		echo "${script_name}: ERROR: Please install '${sbverify}'." >&2
 		exit 1
 	fi
 
@@ -218,7 +219,7 @@ sign_image() {
 export PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[0;37m\]'
 set -ex
 
-name="${0##*/}"
+script_name="${0##*/}"
 trap "on_exit 'failed.'" EXIT
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
@@ -260,7 +261,7 @@ arm64)
 	image_format="arm64-efi"
 	;;
 *)
-	echo "${name}: ERROR: Unsupported target arch '${target_arch}'." >&2
+	echo "${script_name}: ERROR: Unsupported target arch '${target_arch}'." >&2
 	exit 1
 	;;
 esac

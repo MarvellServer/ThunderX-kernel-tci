@@ -2,7 +2,7 @@
 
 set -e
 
-name="${0##*/}"
+script_name="${0##*/}"
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "${BASH_SOURCE%/*}" && pwd )"}
 
@@ -10,10 +10,11 @@ source ${SCRIPTS_TOP}/lib/util.sh
 source ${SCRIPTS_TOP}/lib/relay.sh
 
 usage () {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Write a tci-relay triple to a kernel image." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Write a tci-relay triple to a kernel image." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -h --help         - Show this help and exit." >&2
 	echo "  -k --kernel       - Kernel image. Default: '${kernel}'." >&2
@@ -26,10 +27,10 @@ usage () {
 short_opts="hk:o:t:v"
 long_opts="help,kernel:,out-file:,relay-triple:,verbose"
 
-opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 if [ $? != 0 ]; then
-	echo "${name}: ERROR: Internal getopt" >&2
+	echo "${script_name}: ERROR: Internal getopt" >&2
 	exit 1
 fi
 
@@ -63,7 +64,7 @@ while true ; do
 		break
 		;;
 	*)
-		echo "${name}: ERROR: Internal opts: '${@}'" >&2
+		echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 		exit 1
 		;;
 	esac
@@ -71,11 +72,11 @@ done
 
 if [[ -f "${relay_triple}" ]]; then
 	relay_triple=$(cat ${relay_triple})
-	echo "${name}: INFO: Relay triple: '${relay_triple}'" >&2
+	echo "${script_name}: INFO: Relay triple: '${relay_triple}'" >&2
 fi
 
 if [[ ! ${relay_triple} ]]; then
-	echo "${name}: ERROR: Must provide --relay_triple option." >&2
+	echo "${script_name}: ERROR: Must provide --relay_triple option." >&2
 	usage
 	exit 1
 fi
@@ -91,7 +92,7 @@ if [[ ${usage} ]]; then
 fi
 
 if [[ ! ${kernel} ]]; then
-	echo "${name}: ERROR: Must provide --kernel option." >&2
+	echo "${script_name}: ERROR: Must provide --kernel option." >&2
 	usage
 	exit 1
 fi
@@ -101,7 +102,7 @@ check_file "${kernel}"
 on_exit() {
 	local result=${1}
 
-	echo "${name}: ${result}" >&2
+	echo "${script_name}: ${result}" >&2
 }
 
 trap "on_exit 'Done, failed.'" EXIT
@@ -116,7 +117,7 @@ old=$(eval "egrep --text --only-matching --max-count=1 '${kernel_param}' ${kerne
 result=${?}
 
 if [[ ${result} -ne 0 ]]; then
-	echo "${name}: ERROR: Kernel tci_relay_triple command line param '${kernel_param}' not found." >&2
+	echo "${script_name}: ERROR: Kernel tci_relay_triple command line param '${kernel_param}' not found." >&2
 	echo "Kernel strings:" >&2
 	egrep --text 'tci_relay_triple' ${kernel} >&2
 	egrep --text  --max-count=1 'chosen.*bootargs' ${kernel} >&2
@@ -142,6 +143,6 @@ fi
 
 trap - EXIT
 
-echo "${name}: INFO: Test kernel: '${out_file}'" >&2
+echo "${script_name}: INFO: Test kernel: '${out_file}'" >&2
 
 on_exit 'Done, success.'

@@ -4,7 +4,8 @@ print_gcc_info() {
 	local gcc=${1}
 	local log_file=${2:-"/dev/null"}
 
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set -o xtrace
 	local old_errexit="$(shopt -po errexit || :)"
 	set +o errexit

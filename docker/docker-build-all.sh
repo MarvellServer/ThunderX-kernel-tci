@@ -26,7 +26,7 @@ get_arch() {
 }
 
 usage() {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace="$((shopt -po xtrace || :) || :)"
 	set +o xtrace
 	echo "${name} - Builds all TCI container images." >&2
 	echo "Usage: ${name} [flags]" >&2

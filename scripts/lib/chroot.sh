@@ -17,13 +17,13 @@ get_qemu_static() {
 		qemu_static="/usr/bin/qemu-x86_64-static"
 		;;
 	*)
-		echo "${name}: ERROR: Unsupported host--target combo: '${"${host_arch}--${target_arch}"}'." >&2
+		echo "${script_name}: ERROR: Unsupported host--target combo: '${"${host_arch}--${target_arch}"}'." >&2
 		exit 1
 		;;
 	esac
 
 	if ! test -x "$(command -v ${qemu_static})"; then
-		echo "${name}: ERROR: Please install QEMU user emulation '${qemu_static}'." >&2
+		echo "${script_name}: ERROR: Please install QEMU user emulation '${qemu_static}'." >&2
 		exit 1
 	fi
 

@@ -25,14 +25,14 @@ checkout_at_server() {
 	set -e
 
 	if [[ ${reply_result} -ne 0 ]]; then
-		echo "${name}: checkout_at_server failed: command failed: ${reply_result}" >&2
+		echo "${script_name}: checkout_at_server failed: command failed: ${reply_result}" >&2
 		return ${reply_result}
 	fi
 
-	echo "${name}: reply_msg='${reply_msg}'" >&2
+	echo "${script_name}: reply_msg='${reply_msg}'" >&2
 
 	if [[ ! ${reply_msg} ]]; then
-		echo "${name}: checkout_at_server failed: no reply." >&2
+		echo "${script_name}: checkout_at_server failed: no reply." >&2
 		return -1
 	fi
 
@@ -41,12 +41,12 @@ checkout_at_server() {
 	checkout_split_reply ${reply_msg} cmd data
 
 	if [[ ${cmd} == "ERR" ]]; then
-		echo "${name}: checkout_at_server failed: ${reply_msg}" >&2
+		echo "${script_name}: checkout_at_server failed: ${reply_msg}" >&2
 		return -1
 	fi
 
 	if [[ ! ${data} ]]; then
-		echo "${name}: checkout_at_server failed: no data" >&2
+		echo "${script_name}: checkout_at_server failed: no data" >&2
 		return -2
 	fi
 
@@ -72,14 +72,14 @@ checkin_at_server() {
 	local reply_result=${?}
 	set -e
 
-	echo "${name}: reply_msg='${reply_msg}'" >&2
+	echo "${script_name}: reply_msg='${reply_msg}'" >&2
 
 	local cmd
 	local data
 	checkout_split_reply ${reply_msg} cmd data
 
 	if [[ ${cmd} == "ERR" ]]; then
-		echo "${name}: checkin_at_server failed: ${reply_msg}" >&2
+		echo "${script_name}: checkin_at_server failed: ${reply_msg}" >&2
 		return -1
 	fi
 }

@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
 usage() {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Builds a minimal Linux disk image." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Builds a minimal Linux disk image." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -a --arch              - Target architecture. Default: '${target_arch}'." >&2
 	echo "  -c --clean-rootfs      - Delete bootstrap and rootfs directories. Default: ${clean_rootfs}" >&2
@@ -31,7 +32,7 @@ bootstrap-dir:,image-dir:,\
 bootstrap,rootfs-setup,kernel-modules:,extra-packages:,make-image"
 
 	local opts
-	opts=$(getopt --options "${short_opts}" --long "${long_opts}" -n "${name}" -- "${@}")
+	opts=$(getopt --options "${short_opts}" --long "${long_opts}" -n "${script_name}" -- "${@}")
 
 	eval set -- "${opts}"
 
@@ -96,7 +97,7 @@ bootstrap,rootfs-setup,kernel-modules:,extra-packages:,make-image"
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -113,7 +114,7 @@ on_fail() {
 	local chroot=${1}
 	local mnt=${2}
 
-	echo "${name}: Step ${current_step}: FAILED." >&2
+	echo "${script_name}: Step ${current_step}: FAILED." >&2
 
 	cleanup_chroot ${chroot}
 
@@ -140,12 +141,12 @@ check_kernel_modules() {
 
 	if [ ${dir} ]; then
 		if [ ! -d "${dir}" ]; then
-			echo "${name}: ERROR: <kernel-modules> directory not found: '${dir}'" >&2
+			echo "${script_name}: ERROR: <kernel-modules> directory not found: '${dir}'" >&2
 			usage
 			exit 1
 		fi
 		if [ "$(basename $(cd ${dir}/.. && pwd))" != "modules" ]; then
-			echo "${name}: ERROR: No kernel modules found in '${dir}'" >&2
+			echo "${script_name}: ERROR: No kernel modules found in '${dir}'" >&2
 			usage
 			exit 1
 		fi
@@ -157,7 +158,7 @@ test_step_code() {
 
 	case "${step_code}" in
 	1--|1-1-|1-1-1|-1-|-1-1|--1)
-		#echo "${name}: Steps OK" >&2
+		#echo "${script_name}: Steps OK" >&2
 		;;
 	--)
 		step_bootstrap=1
@@ -165,12 +166,12 @@ test_step_code() {
 		step_make_image=1
 		;;
 	1--1)
-		echo "${name}: ERROR: Bad flags: 'bootstrap + make_image'." >&2
+		echo "${script_name}: ERROR: Bad flags: 'bootstrap + make_image'." >&2
 		usage
 		exit 1
 		;;
 	*)
-		echo "${name}: ERROR: Internal bad step_code: '${step_code}'." >&2
+		echo "${script_name}: ERROR: Internal bad step_code: '${step_code}'." >&2
 		exit 1
 		;;
 	esac
@@ -248,7 +249,7 @@ setup_kernel_modules() {
 	local src=${2}
 
 	if [ ! ${src} ]; then
-		echo "${name}: WARNING: No kernel modules provided." >&2
+		echo "${script_name}: WARNING: No kernel modules provided." >&2
 		return
 	fi
 
@@ -262,7 +263,7 @@ setup_kernel_modules() {
 	${sudo} rsync -av --delete ${extra} \
 		--exclude '/build' --exclude '/source' \
 		${src}/ ${dest}/
-	echo "${name}: INFO: Kernel modules size: $(directory_size_human ${dest})"
+	echo "${script_name}: INFO: Kernel modules size: $(directory_size_human ${dest})"
 }
 
 setup_password() {
@@ -270,7 +271,7 @@ setup_password() {
 	local pw=${2}
 
 	pw=${pw:-"r"}
-	echo "${name}: INFO: Login password = '${pw}'." >&2
+	echo "${script_name}: INFO: Login password = '${pw}'." >&2
 
 	if [ ${pw} ]; then
 		local hash
@@ -343,11 +344,12 @@ print_usage_summary() {
 
 	base_size="$(bc <<< "${rootfs_size} - ${modules_size}")"
 
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name}: INFO: Base size:    ${base_size} MiB"
-	echo "${name}: INFO: Modules size: ${modules_size} MiB"
-	echo "${name}: INFO: Total size:   ${rootfs_size} MiB"
+	echo "${script_name}: INFO: Base size:    ${base_size} MiB"
+	echo "${script_name}: INFO: Modules size: ${modules_size} MiB"
+	echo "${script_name}: INFO: Total size:   ${rootfs_size} MiB"
 	eval "${old_xtrace}"
 }
 
@@ -364,7 +366,7 @@ write_tci_client_script() {
 #===============================================================================
 # program start
 #===============================================================================
-name="${0##*/}"
+script_name="${0##*/}"
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "${BASH_SOURCE%/*}" && pwd )"}
 RELAY_TOP=${RELAY_TOP:-"$( cd "${SCRIPTS_TOP}/../relay" && pwd )"}
@@ -409,11 +411,11 @@ ${sudo} true
 cleanup_chroot ${image_rootfs}
 cleanup_chroot ${bootstrap_dir}
 
-tmp_dir="$(mktemp --tmpdir --directory ${name}.XXXX)"
+tmp_dir="$(mktemp --tmpdir --directory ${script_name}.XXXX)"
 
 if [ ${step_bootstrap} ]; then
 	current_step="bootstrap"
-	echo "${name}: INFO: Step ${current_step} (${rootfs_type}): start." >&2
+	echo "${script_name}: INFO: Step ${current_step} (${rootfs_type}): start." >&2
 
 	sudo rm -rf ${bootstrap_dir}
 	mkdir -p ${bootstrap_dir}
@@ -422,14 +424,14 @@ if [ ${step_bootstrap} ]; then
 	bootstrap_rootfs ${bootstrap_dir}
 	${sudo} chown -R $(id --user --real --name): ${bootstrap_dir}
 
-	echo "${name}: INFO: Step ${current_step} (${rootfs_type}): Done (${bootstrap_dir})." >&2
-	echo "${name}: INFO: Bootstrap size: $(directory_size_human ${bootstrap_dir})"
+	echo "${script_name}: INFO: Step ${current_step} (${rootfs_type}): Done (${bootstrap_dir})." >&2
+	echo "${script_name}: INFO: Bootstrap size: $(directory_size_human ${bootstrap_dir})"
 fi
 
 if [ ${step_rootfs_setup} ]; then
 	current_step="rootfs_setup"
-	echo "${name}: INFO: Step ${current_step} (${rootfs_type}): start." >&2
-	echo "${name}: INFO: Step ${current_step}: Using ${bootstrap_dir}." >&2
+	echo "${script_name}: INFO: Step ${current_step} (${rootfs_type}): start." >&2
+	echo "${script_name}: INFO: Step ${current_step}: Using ${bootstrap_dir}." >&2
 
 	check_directory "${bootstrap_dir}"
 	check_directory "${bootstrap_dir}/usr/bin"
@@ -457,12 +459,12 @@ if [ ${step_rootfs_setup} ]; then
 	${sudo} chown -R $(id --user --real --name): ${image_rootfs}
 
 	print_usage_summary ${image_rootfs} ${kernel_modules}
-	echo "${name}: INFO: Step ${current_step} (${rootfs_type}): done." >&2
+	echo "${script_name}: INFO: Step ${current_step} (${rootfs_type}): done." >&2
 fi
 
 if [ ${step_make_image} ]; then
 	current_step="make_image"
-	echo "${name}: INFO: Step ${current_step} (${rootfs_type}): start." >&2
+	echo "${script_name}: INFO: Step ${current_step} (${rootfs_type}): start." >&2
 
 	check_directory ${image_rootfs}
 
@@ -484,7 +486,7 @@ if [ ${step_make_image} ]; then
 	need_clean_rootfs=${clean_rootfs}
 
 	print_usage_summary ${image_rootfs} ${kernel_modules}
-	echo "${name}: INFO: Step ${current_step} (${rootfs_type}): done." >&2
+	echo "${script_name}: INFO: Step ${current_step} (${rootfs_type}): done." >&2
 
 fi
 
@@ -494,4 +496,4 @@ fi
 
 trap on_exit EXIT
 
-echo "${name}: INFO: Success: bootstrap='${bootstrap_dir}' image='${image_dir}'" >&2
+echo "${script_name}: INFO: Success: bootstrap='${bootstrap_dir}' image='${image_dir}'" >&2

@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
 usage() {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Run Fedora install test in QEMU." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Run Fedora install test in QEMU." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -a --arch           - Target architecture. Default: '${target_arch}'." >&2
 	echo "  -c --kernel-cmd     - Kernel command line options. Default: '${kernel_cmd}'." >&2
@@ -28,10 +29,10 @@ process_opts() {
 verbose,hda:,initrd:,kickstart:,kernel:,result-file:,ssh-key:"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	if [ $? != 0 ]; then
-		echo "${name}: ERROR: Internal getopt" >&2
+		echo "${script_name}: ERROR: Internal getopt" >&2
 		exit 1
 	fi
 
@@ -97,7 +98,7 @@ verbose,hda:,initrd:,kickstart:,kernel:,result-file:,ssh-key:"
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -107,7 +108,8 @@ verbose,hda:,initrd:,kickstart:,kernel:,result-file:,ssh-key:"
 on_exit() {
 	local result=${1}
 
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
 	echo '*** on_exit ***'
 	echo "*** result   = ${result}" >&2
@@ -136,7 +138,7 @@ on_exit() {
 		${sudo} rm -rf ${tmp_dir}
 	fi
 
-	echo "${name}: ${result}" >&2
+	echo "${script_name}: ${result}" >&2
 }
 
 make_kickstart_img() {
@@ -174,7 +176,7 @@ start_qemu_kernel() {
 
 	ssh_fwd=$(( ${hostfwd_offset} + 22 ))
 
-	echo "${name}: ssh_fwd port = ${ssh_fwd}" >&2
+	echo "${script_name}: ssh_fwd port = ${ssh_fwd}" >&2
 
 	${SCRIPTS_TOP}/start-qemu.sh \
 		--verbose \
@@ -197,7 +199,7 @@ start_qemu_hda() {
 
         ssh_fwd=$(( ${hostfwd_offset} + 22 ))
 
-	echo "${name}: ssh_fwd port = ${ssh_fwd}" >&2
+	echo "${script_name}: ssh_fwd port = ${ssh_fwd}" >&2
 
         ${SCRIPTS_TOP}/start-qemu.sh \
                 --verbose \
@@ -214,7 +216,7 @@ start_qemu_hda() {
 #===============================================================================
 # program start
 #===============================================================================
-name="${0##*/}"
+script_name="${0##*/}"
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "${BASH_SOURCE%/*}" && pwd )"}
 
 trap "on_exit 'failed.'" EXIT
@@ -236,7 +238,7 @@ if [[ -n "${usage}" ]]; then
 fi
 
 if [[ "${target_arch}" != "arm64" ]]; then
-	echo "${name}: ERROR: Unsupported target arch '${target_arch}'." >&2
+	echo "${script_name}: ERROR: Unsupported target arch '${target_arch}'." >&2
 	exit 1
 fi
 
@@ -256,11 +258,11 @@ inst_repo="$(egrep '^url[[:space:]]*--url=' ${kickstart} | cut -d '=' -f 2 | sed
 kernel_cmd="inst.text inst.repo=${inst_repo} inst.ks=hd:vdb:${kickstart##*/} ${kernel_cmd}"
 
 if [[ ! ${out_file} ]]; then
-	out_file="${name}-out.txt"
+	out_file="${script_name}-out.txt"
 fi
 
 if [[ ! ${result_file} ]]; then
-	result_file="${name}-result.txt"
+	result_file="${script_name}-result.txt"
 fi
 
 if [[ ${ssh_key} ]]; then
@@ -275,7 +277,7 @@ fi
 
 rm -f ${out_file} ${out_file}.start ${result_file}
 
-tmp_dir="$(mktemp --tmpdir --directory ${name}.XXXX)"
+tmp_dir="$(mktemp --tmpdir --directory ${script_name}.XXXX)"
 
 echo '--------' >> ${result_file}
 echo 'printenv' >> ${result_file}
@@ -291,7 +293,7 @@ SECONDS=0
 
 start_qemu_kernel ${out_file}.start
 
-echo "${name}: Waiting for QEMU startup..." >&2
+echo "${script_name}: Waiting for QEMU startup..." >&2
 sleep 10s
 
 echo '---- start-qemu start install ----' >&2
@@ -301,24 +303,24 @@ echo '---- start-qemu end install ----' >&2
 ps aux
 
 if [[ ! -f ${qemu_pid_file} ]]; then
-	echo "${name}: ERROR: QEMU seems to have quit early (pid file)." >&2
+	echo "${script_name}: ERROR: QEMU seems to have quit early (pid file)." >&2
 	exit 1
 fi
 
 qemu_pid=$(cat ${qemu_pid_file})
 
 if ! kill -0 ${qemu_pid} &> /dev/null; then
-	echo "${name}: ERROR: QEMU seems to have quit early (pid)." >&2
+	echo "${script_name}: ERROR: QEMU seems to have quit early (pid)." >&2
 	exit 1
 fi
 
-echo "${name}: Waiting for QEMU exit..." >&2
+echo "${script_name}: Waiting for QEMU exit..." >&2
 wait_pid ${qemu_pid} 5100
 
 
 start_qemu_hda ${out_file}.start
 
-echo "${name}: Waiting for QEMU startup..." >&2
+echo "${script_name}: Waiting for QEMU startup..." >&2
 sleep 180s
 
 echo '---- start-qemu start boot ----' >&2
@@ -328,14 +330,14 @@ echo '---- start-qemu end boot ----' >&2
 ps aux
 
 if [[ ! -f ${qemu_pid_file} ]]; then
-        echo "${name}: ERROR: QEMU seems to have quit early (pid file)." >&2
+        echo "${script_name}: ERROR: QEMU seems to have quit early (pid file)." >&2
         exit 1
 fi
 
 qemu_pid=$(cat ${qemu_pid_file})
 
 if ! kill -0 ${qemu_pid} &> /dev/null; then
-        echo "${name}: ERROR: QEMU seems to have quit early (pid)." >&2
+        echo "${script_name}: ERROR: QEMU seems to have quit early (pid)." >&2
         exit 1
 fi
 
@@ -348,10 +350,10 @@ ssh_no_check="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 ssh ${ssh_no_check} -i ${ssh_key} ${user_qemu_ssh_opts} ${user_qemu_host} \
         '/sbin/poweroff &'
 
-echo "${name}: Waiting for QEMU exit..." >&2
+echo "${script_name}: Waiting for QEMU exit..." >&2
 wait_pid ${qemu_pid} 180
 
-echo "${name}: Boot time: $(sec_to_min ${SECONDS}) min" >&2
+echo "${script_name}: Boot time: $(sec_to_min ${SECONDS}) min" >&2
 
 trap - EXIT
 on_exit 'Done, success.'

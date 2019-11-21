@@ -10,8 +10,8 @@ usage() {
 	
 	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Set or display ThunderX2 ${op_name} value." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Set or display ThunderX2 ${op_name} value." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -h --help        - Show this help and exit." >&2
 	echo "  -s --set <value> - Set value {${op_values}}.  Default: '${set_value}'." >&2
@@ -24,7 +24,7 @@ process_opts() {
 	local long_opts="help,set:,verbose"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	eval set -- "${opts}"
 
@@ -47,13 +47,13 @@ process_opts() {
 		--)
 			shift
 			if [[ ${1} ]]; then
-				echo "${name}: ERROR: Extra args found: '${@}'" >&2
+				echo "${script_name}: ERROR: Extra args found: '${@}'" >&2
 				usage=1
 			fi
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -63,7 +63,7 @@ process_opts() {
 on_exit() {
 	local result=${1}
 
-	echo "${name}: Done: ${result}" >&2
+	echo "${script_name}: Done: ${result}" >&2
 	exit 0
 }
 
@@ -152,12 +152,12 @@ op_check_value() {
 		done
 		;;
 	*)
-		echo "${name}: ERROR: Internal type: ${type}" >&2
+		echo "${script_name}: ERROR: Internal type: ${type}" >&2
 		exit 1
 		;;
 	esac
 
-	echo "${name}: ERROR: Bad set value: '${value_hex}'" >&2
+	echo "${script_name}: ERROR: Bad set value: '${value_hex}'" >&2
 	usage
 	exit 1
 }
@@ -178,7 +178,7 @@ dmidecode_cpu_count() {
 #===============================================================================
 PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[0;37m\]'
 
-name="${0##*/}"
+script_name="${0##*/}"
 
 trap "on_exit 'failed.'" EXIT
 
@@ -228,13 +228,13 @@ if [[ ${usage} ]]; then
 fi
 
 if [[ "${host_arch}" != "aarch64" ]]; then
-	echo "${name}: ERROR: For ARM64 machines only." >&2
+	echo "${script_name}: ERROR: For ARM64 machines only." >&2
 	exit 1
 fi
 
 if [[ ${dmidecode} ]]; then
 	if ! ${dmidecode} -s processor-version | egrep -i 'ThunderX' > /dev/null; then
-		echo "${name}: ERROR: For ThunderX machines only." >&2
+		echo "${script_name}: ERROR: For ThunderX machines only." >&2
 		exit 1
 	fi
 fi
@@ -242,16 +242,16 @@ fi
 if [[ ! -d ${efi_dir}  ]]; then
 	mount | egrep efivars || :
 	if [[ ${?} ]]; then
-		echo "${name}: ERROR: efivars file system not mounted: '${efi_dir}'" >&2
+		echo "${script_name}: ERROR: efivars file system not mounted: '${efi_dir}'" >&2
 	else
-		echo "${name}: ERROR: Directory not found: '${efi_dir}'" >&2
+		echo "${script_name}: ERROR: Directory not found: '${efi_dir}'" >&2
 	fi
 	exit 1
 fi
 
 if [[ ! -f ${efi_file}  ]]; then
-	echo "${name}: ERROR: File not found: '${efi_file}'" >&2
-	echo "${name}: Check firmware version" >&2
+	echo "${script_name}: ERROR: File not found: '${efi_file}'" >&2
+	echo "${script_name}: Check firmware version" >&2
 	if [[ ${dmidecode} ]]; then
 		${dmidecode} -s bios-version
 	fi
@@ -270,7 +270,7 @@ if [[ ${set_value} ]]; then
 	op_check_value ${set_value}
 
 	if [[ ${cur_value} -eq ${set_value} ]]; then
-		echo "${name}: INFO: Set value same as current value: '${cur_value}'" >&2
+		echo "${script_name}: INFO: Set value same as current value: '${cur_value}'" >&2
 	else
 		set_efi_var ${efi_file} ${set_value}
 		new_value=$(print_efi_var ${efi_file})

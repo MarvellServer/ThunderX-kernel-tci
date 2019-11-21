@@ -10,7 +10,7 @@ download_minirootfs() {
 		amd64) 	alpine_arch="x86_64" ;;
 		arm64) 	alpine_arch="aarch64" ;;
 		*)
-			echo "${name}: ERROR: Unsupported target arch '${target_arch}'." >&2
+			echo "${script_name}: ERROR: Unsupported target arch '${target_arch}'." >&2
 			exit 1
 			;;
 	esac
@@ -25,7 +25,7 @@ download_minirootfs() {
 	local latest
 	latest="$(egrep --only-matching "file: alpine-minirootfs-[0-9.]*-${alpine_arch}.tar.gz" ${releases_yaml})"
 	if [[ ! ${latest} ]]; then
-		echo "${name}: ERROR: Bad releases file '${releases_yaml}'." >&2
+		echo "${script_name}: ERROR: Bad releases file '${releases_yaml}'." >&2
 		cat ${releases_yaml}
 		exit 1
 	fi
@@ -33,7 +33,7 @@ download_minirootfs() {
 	wget "${base_url}/${latest}"
 
 	popd
-	echo "${name}: INFO: Download '${latest}'." >&2
+	echo "${script_name}: INFO: Download '${latest}'." >&2
 	_download_minirootfs__archive_file="${download_dir}/${latest}"
 }
 
@@ -158,7 +158,7 @@ setup_sshd() {
 		/usr/bin/dropbearkey -t ecdsa -f /etc/dropbear/dropbear_ecdsa_host_key
 	"
 
-	#echo "${name}: USER=@$(id --user --real --name)@" >&2
+	#echo "${script_name}: USER=@$(id --user --real --name)@" >&2
 	${sudo} cp -f "${rootfs}/etc/dropbear/dropbear_rsa_host_key" ${srv_key}
 	${sudo} chown $(id --user --real --name): ${srv_key}
 

@@ -2,14 +2,15 @@
 
 set -e
 
-name="${0##*/}"
+script_name="${0##*/}"
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "${BASH_SOURCE%/*}" && pwd )"}
 
 source ${SCRIPTS_TOP}/lib/util.sh
 
 usage() {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
 
 	if [[ -z ${password} ]]; then
@@ -18,8 +19,8 @@ usage() {
 		local p='*******'
 	fi
 	
-	echo "${name} - Adds a TCI jenkins user to system." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Adds a TCI jenkins user to system." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -c --check    - Only run checks then exit." >&2
 	echo "  -d --delete   - Delete user '${user}' from system." >&2
@@ -39,10 +40,10 @@ usage() {
 
 short_opts="cde:g:hnp:r:su:w:"
 long_opts="check,delete,home:,gid:,help,np-sudo,group:,user:,sudo,uid:,password:"
-opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 if [ $? != 0 ]; then
-	echo "${name}: ERROR: Internal getopt" >&2
+	echo "${script_name}: ERROR: Internal getopt" >&2
 	exit 1
 fi
 
@@ -99,7 +100,7 @@ while true ; do
 		break
 		;;
 	*)
-		echo "${name}: ERROR: Internal opts: '${@}'" >&2
+		echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 		exit 1
 		;;
 	esac
@@ -129,53 +130,53 @@ run_checks() {
 	fi
 
 	if getent passwd ${user} &> /dev/null; then
-		echo "${name}: ${check_msg}: user '${user}' exists." >&2
-		echo "${name}: ${check_msg}: => $(id ${user})" >&2
+		echo "${script_name}: ${check_msg}: user '${user}' exists." >&2
+		echo "${script_name}: ${check_msg}: => $(id ${user})" >&2
 		result=1
 	else
-		echo "${name}: INFO: user '${user}' does not exist." >&2
+		echo "${script_name}: INFO: user '${user}' does not exist." >&2
 	fi
 
 	if getent group ${uid} &> /dev/null; then
-		echo "${name}: ${check_msg}: uid ${uid} exists." >&2
+		echo "${script_name}: ${check_msg}: uid ${uid} exists." >&2
 		result=1
 	else
-		echo "${name}: INFO: uid ${uid} does not exist." >&2
+		echo "${script_name}: INFO: uid ${uid} does not exist." >&2
 	fi
 
 	if [[ -d ${home} ]]; then
-		echo "${name}: ${check_msg}: home '${home}' exists." >&2
+		echo "${script_name}: ${check_msg}: home '${home}' exists." >&2
 		result=1
 	else
-		echo "${name}: INFO: home '${home}' does not exist." >&2
+		echo "${script_name}: INFO: home '${home}' does not exist." >&2
 	fi
 
 	if getent group ${group} &> /dev/null; then
-		echo "${name}: ${check_msg}: group '${group}' exists." >&2
+		echo "${script_name}: ${check_msg}: group '${group}' exists." >&2
 		result=1
 	else
-		echo "${name}: INFO: group '${group}' does not exist." >&2
+		echo "${script_name}: INFO: group '${group}' does not exist." >&2
 	fi
 
 	if getent group ${gid} &> /dev/null; then
-		echo "${name}: ${check_msg}: gid ${gid} exists." >&2
+		echo "${script_name}: ${check_msg}: gid ${gid} exists." >&2
 		result=1
 	else
-		echo "${name}: INFO: gid ${gid} does not exist." >&2
+		echo "${script_name}: INFO: gid ${gid} does not exist." >&2
 	fi
 
 	if [[ -f /etc/sudoers.d/${user} ]]; then
-		echo "${name}: ${check_msg}: sudoers '/etc/sudoers.d/${user}' exists." >&2
+		echo "${script_name}: ${check_msg}: sudoers '/etc/sudoers.d/${user}' exists." >&2
 		result=1
 	else
-		echo "${name}: INFO: sudoers '/etc/sudoers.d/${user}' does not exist." >&2
+		echo "${script_name}: INFO: sudoers '/etc/sudoers.d/${user}' does not exist." >&2
 	fi
 
 	if [[ ${result} ]]; then
 		return 1
 	fi
 
-	echo "${name}: INFO: Checks OK." >&2
+	echo "${script_name}: INFO: Checks OK." >&2
 
 	return 0
 }
@@ -226,4 +227,4 @@ if [[ -n ${password} ]]; then
 fi
 eval "${old_xtrace}"
 
-echo "${name}: INFO: Done OK." >&2
+echo "${script_name}: INFO: Done OK." >&2

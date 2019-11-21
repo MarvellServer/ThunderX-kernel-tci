@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
 usage() {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Sets kernel config options from <spec-file>." >&2
-	echo "Usage: ${name} [flags] <spec-file> <kernel-config>" >&2
+	echo "${script_name} - Sets kernel config options from <spec-file>." >&2
+	echo "Usage: ${script_name} [flags] <spec-file> <kernel-config>" >&2
 	echo "Option flags:" >&2
 	echo "  -h --help          - Show this help and exit." >&2
 	echo "  -v --verbose       - Verbose execution." >&2
@@ -24,10 +25,10 @@ process_opts() {
 	local long_opts="help,verbose,platform-args:"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	if [ $? != 0 ]; then
-		echo "${name}: ERROR: Internal getopt" >&2
+		echo "${script_name}: ERROR: Internal getopt" >&2
 		exit 1
 	fi
 
@@ -52,21 +53,21 @@ process_opts() {
 			spec_file="${2}"
 			kernel_config="${3}"
 			if ! shift 3; then
-				echo "${name}: ERROR: Missing args:" >&2
-				echo "${name}:        <spec-file>='${spec_file}'" >&2
-				echo "${name}:        <kernel-config>='${kernel_config}'" >&2
+				echo "${script_name}: ERROR: Missing args:" >&2
+				echo "${script_name}:        <spec-file>='${spec_file}'" >&2
+				echo "${script_name}:        <kernel-config>='${kernel_config}'" >&2
 				usage
 				exit 1
 			fi
 			if [[ -n "${1}" ]]; then
-				echo "${name}: ERROR: Got extra args: '${@}'" >&2
+				echo "${script_name}: ERROR: Got extra args: '${@}'" >&2
 				usage
 				exit 1
 			fi
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -76,13 +77,13 @@ process_opts() {
 on_exit() {
 	local result=${1}
 
-	echo "${name}: ${result}" >&2
+	echo "${script_name}: ${result}" >&2
 }
 
 #===============================================================================
 # program start
 #===============================================================================
-name="${0##*/}"
+script_name="${0##*/}"
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "${BASH_SOURCE%/*}" && pwd )"}
 
@@ -114,10 +115,10 @@ while read -r update; do
 	if old=$(egrep ".*${tok}[^_].*" ${kernel_config}); then
 		sed  --in-place "{s@.*${tok}[^_].*@${update}@g}" ${kernel_config}
 		new=$(egrep ".*${tok}[^_].*" ${kernel_config})
-		echo "${name}: Update: '${old}' -> '${new}'"
+		echo "${script_name}: Update: '${old}' -> '${new}'"
 	else
 		echo "${update}" >> "${kernel_config}"
-		echo "${name}: Append: '${update}'"
+		echo "${script_name}: Append: '${update}'"
 	fi
 
 done < "${spec_file}"

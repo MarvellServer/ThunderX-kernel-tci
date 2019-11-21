@@ -4,10 +4,11 @@ usage() {
 	local target_list="$(clean_ws ${targets})"
 	local op_list="$(clean_ws ${ops})"
 
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Builds linux kernel." >&2
-	echo "Usage: ${name} [flags] <target> <kernel_src> <op>" >&2
+	echo "${script_name} - Builds linux kernel." >&2
+	echo "Usage: ${script_name} [flags] <target> <kernel_src> <op>" >&2
 	echo "Option flags:" >&2
 	echo "  -c --check       - Run shellcheck." >&2
 	echo "  -h --help        - Show this help and exit." >&2
@@ -34,10 +35,10 @@ process_opts() {
 build-dir:,install-dir:,local-version:"
 
 	local opts
-	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+	opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 	if [ $? != 0 ]; then
-		echo "${name}: ERROR: Internal getopt" >&2
+		echo "${script_name}: ERROR: Internal getopt" >&2
 		exit 1
 	fi
 
@@ -75,22 +76,22 @@ build-dir:,install-dir:,local-version:"
 			kernel_src=${3}
 			op=${4}
 			if ! shift 4; then
-				echo "${name}: ERROR: Missing args:" >&2
-				echo "${name}:        <target>='${target}'" >&2
-				echo "${name}:        <kernel_src>='${kernel_src}'" >&2
-				echo "${name}:        <op>='${op}'" >&2
+				echo "${script_name}: ERROR: Missing args:" >&2
+				echo "${script_name}:        <target>='${target}'" >&2
+				echo "${script_name}:        <kernel_src>='${kernel_src}'" >&2
+				echo "${script_name}:        <op>='${op}'" >&2
 				usage
 				exit 1
 			fi
 			if [[ -n "${1}" ]]; then
-				echo "${name}: ERROR: Got extra args: '${@}'" >&2
+				echo "${script_name}: ERROR: Got extra args: '${@}'" >&2
 				usage
 				exit 1
 			fi
 			break
 			;;
 		*)
-			echo "${name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 			exit 1
 			;;
 		esac
@@ -108,17 +109,17 @@ on_exit() {
 
 	set +x
 	echo "" >&2
-	echo "${name}: Done:          result=${result}" >&2
-	echo "${name}: target:        ${target}" >&2
-	echo "${name}: op:            ${op}" >&2
-	echo "${name}: kernel_src:    ${kernel_src}" >&2
-	echo "${name}: build_dir:     ${build_dir}" >&2
-	echo "${name}: install_dir:   ${install_dir}" >&2
-	echo "${name}: local_version: ${local_version}" >&2
-	echo "${name}: make_options:  ${make_options}" >&2
-	echo "${name}: start_time:    ${start_time}" >&2
-	echo "${name}: end_time:      ${end_time}" >&2
-	echo "${name}: duration:      ${sec} sec ($(sec_to_min ${sec} min) min)" >&2
+	echo "${script_name}: Done:          result=${result}" >&2
+	echo "${script_name}: target:        ${target}" >&2
+	echo "${script_name}: op:            ${op}" >&2
+	echo "${script_name}: kernel_src:    ${kernel_src}" >&2
+	echo "${script_name}: build_dir:     ${build_dir}" >&2
+	echo "${script_name}: install_dir:   ${install_dir}" >&2
+	echo "${script_name}: local_version: ${local_version}" >&2
+	echo "${script_name}: make_options:  ${make_options}" >&2
+	echo "${script_name}: start_time:    ${start_time}" >&2
+	echo "${script_name}: end_time:      ${end_time}" >&2
+	echo "${script_name}: duration:      ${sec} sec ($(sec_to_min ${sec} min) min)" >&2
 	exit ${result}
 }
 
@@ -169,7 +170,7 @@ install_modules() {
 export PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[0;37m\]'
 set -e
 
-name="${0##*/}"
+script_name="${0##*/}"
 trap "on_exit 'failed.'" EXIT
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
@@ -237,7 +238,7 @@ check_directory "${kernel_src}" "" "usage"
 if test -x "$(command -v ccache)"; then
 	ccache='ccache '
 else
-	echo "${name}: INFO: Please install ccache"
+	echo "${script_name}: INFO: Please install ccache"
 fi
 
 declare -a target_copy
@@ -294,7 +295,7 @@ ps3)
 	)
 	;;
 *)
-	echo "${name}: ERROR: Unknown target: '${target}'" >&2
+	echo "${script_name}: ERROR: Unknown target: '${target}'" >&2
 	usage
 	exit 1
 	;;
@@ -316,7 +317,7 @@ mkdir -p ${CCACHE_DIR}
 
 cd ${kernel_src}
 
-tmp_dir="$(mktemp --tmpdir --directory ${name}.XXXX)"
+tmp_dir="$(mktemp --tmpdir --directory ${script_name}.XXXX)"
 
 case "${op}" in
 all)
@@ -363,7 +364,7 @@ gconfig | menuconfig | oldconfig | olddefconfig | xconfig)
 	eval "make ${make_options} savedefconfig"
 	;;
 *)
-	echo "${name}: INFO: Unknown op: '${op}'" >&2
+	echo "${script_name}: INFO: Unknown op: '${op}'" >&2
 	eval "make ${make_options} ${op}"
 	;;
 esac

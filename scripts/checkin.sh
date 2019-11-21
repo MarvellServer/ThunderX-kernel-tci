@@ -2,7 +2,7 @@
 
 set -e
 
-name="${0##*/}"
+script_name="${0##*/}"
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "${BASH_SOURCE%/*}" && pwd )"}
 
@@ -10,10 +10,11 @@ source ${SCRIPTS_TOP}/lib/util.sh
 source ${SCRIPTS_TOP}/lib/checkout.sh
 
 usage() {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Checkin TCI resource." >&2
-	echo "Usage: ${name} [flags] <token>" >&2
+	echo "${script_name} - Checkin TCI resource." >&2
+	echo "Usage: ${script_name} [flags] <token>" >&2
 	echo "Option flags:" >&2
 	echo "  -h --help    - Show this help and exit." >&2
 	echo "  -v --verbose - Verbose execution." >&2
@@ -25,10 +26,10 @@ usage() {
 short_opts="hv"
 long_opts="help,verbose"
 
-opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 if [ $? != 0 ]; then
-	echo "${name}: ERROR: Internal getopt" >&2
+	echo "${script_name}: ERROR: Internal getopt" >&2
 	exit 1
 fi
 
@@ -50,14 +51,14 @@ while true ; do
 		token=${1}
 		if ! shift 1; then
 			set +o xtrace
-			echo "${name}: ERROR: Missing args:" >&2
-			echo "${name}:   <token>='${token}'" >&2
+			echo "${script_name}: ERROR: Missing args:" >&2
+			echo "${script_name}:   <token>='${token}'" >&2
 			usage
 			exit 1
 		fi
 		if [[ -n "${1}" ]]; then
 			set +o xtrace
-			echo "${name}: ERROR: Got extra args: '${@}'" >&2
+			echo "${script_name}: ERROR: Got extra args: '${@}'" >&2
 			usage
 			exit 1
 		fi
@@ -65,7 +66,7 @@ while true ; do
 		;;
 	*)
 		set +o xtrace
-		echo "${name}: ERROR: Internal opts: '${@}'" >&2
+		echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 		exit 1
 		;;
 	esac
@@ -80,8 +81,8 @@ on_err() {
 	set +x
 	set +e
 
-	echo "${name}: token: ${token}"
-	echo "${name}: Done, failed." >&2
+	echo "${script_name}: token: ${token}"
+	echo "${script_name}: Done, failed." >&2
 }
 
 trap on_err EXIT
@@ -89,4 +90,4 @@ trap on_err EXIT
 checkin "${token}"
 
 trap - EXIT
-echo "${name}: Done, success." >&2
+echo "${script_name}: Done, success." >&2

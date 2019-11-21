@@ -5,7 +5,8 @@ SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}/.." && pwd)"}
 source ${SCRIPTS_TOP}/lib/util.sh
 
 test_usage_kselftest() {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
 	echo "  ${BASH_SOURCE##*/} - Linux Kernel Selftests." >&2
 	echo "    The kernel contains a set of 'self tests' under the"

@@ -2,17 +2,18 @@
 
 set -e
 
-name="${0##*/}"
+script_name="${0##*/}"
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$( cd "${BASH_SOURCE%/*}" && pwd )"}
 
 source ${SCRIPTS_TOP}/lib/util.sh
 
 usage () {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
-	echo "${name} - Upload files to tftp server." >&2
-	echo "Usage: ${name} [flags]" >&2
+	echo "${script_name} - Upload files to tftp server." >&2
+	echo "Usage: ${script_name} [flags]" >&2
 	echo "Option flags:" >&2
 	echo "  -h --help           - Show this help and exit." >&2
 	echo "  -i --initrd         - Initrd image. Default: '${initrd}'." >&2
@@ -28,10 +29,10 @@ usage () {
 short_opts="hi:k:ns:v"
 long_opts="help,initrd:,kernel:,no-known-hosts,ssh-login-key:,tftp-dest:,tftp-triple:,verbose"
 
-opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${name}" -- "$@")
+opts=$(getopt --options ${short_opts} --long ${long_opts} -n "${script_name}" -- "$@")
 
 if [ $? != 0 ]; then
-	echo "${name}: ERROR: Internal getopt" >&2
+	echo "${script_name}: ERROR: Internal getopt" >&2
 	exit 1
 fi
 
@@ -77,7 +78,7 @@ while true ; do
 		break
 		;;
 	*)
-		echo "${name}: ERROR: Internal opts: '${@}'" >&2
+		echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
 		exit 1
 		;;
 	esac
@@ -97,7 +98,7 @@ if [[ -f "${tftp_triple}" ]]; then
 fi
 
 if [[ ${tftp_triple} ]]; then
-	echo "${name}: INFO: tftp triple: '${tftp_triple}'" >&2
+	echo "${script_name}: INFO: tftp triple: '${tftp_triple}'" >&2
 
 	tftp_user="$(echo ${tftp_triple} | cut -d ':' -f 1)"
 	tftp_server="$(echo ${tftp_triple} | cut -d ':' -f 2)"
@@ -110,10 +111,10 @@ fi
 
 check_opt 'tftp-dest' ${tftp_dest}
 
-echo "${name}: INFO: tftp user:   '${tftp_user}'" >&2
-echo "${name}: INFO: tftp server: '${tftp_server}'" >&2
-echo "${name}: INFO: tftp root:   '${tftp_root}'" >&2
-echo "${name}: INFO: tftp dest:   '${tftp_dest}'" >&2
+echo "${script_name}: INFO: tftp user:   '${tftp_user}'" >&2
+echo "${script_name}: INFO: tftp server: '${tftp_server}'" >&2
+echo "${script_name}: INFO: tftp root:   '${tftp_root}'" >&2
+echo "${script_name}: INFO: tftp dest:   '${tftp_dest}'" >&2
 
 check_opt 'kernel' ${kernel}
 check_file "${kernel}"
@@ -131,7 +132,7 @@ on_exit() {
 		rm -rf ${tmp_dir}
 	fi
 
-	echo "${name}: ${result}" >&2
+	echo "${script_name}: ${result}" >&2
 }
 
 trap "on_exit 'Done, failed.'" EXIT
@@ -140,7 +141,7 @@ trap "on_exit 'Done, failed.'" EXIT
 #	ssh_extra_args+="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 #else
 #	if ! ssh-keygen -F ${tftp_server} &> /dev/null; then
-#		tmp_dir="$(mktemp --tmpdir --directory ${name}.XXXX)"
+#		tmp_dir="$(mktemp --tmpdir --directory ${script_name}.XXXX)"
 #		known_hosts_file="${tmp_dir}/known_hosts"
 #
 #		ssh-keyscan ${tftp_server} >> ${known_hosts_file}

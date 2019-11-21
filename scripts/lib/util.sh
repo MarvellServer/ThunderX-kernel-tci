@@ -33,12 +33,12 @@ strip_current() {
 	local path=${1}
 
 	if [[ ! ${CURRENT_WORK_DIR} ]]; then
-		echo "${name}: ERROR (${FUNCNAME[0]}): Bad CURRENT_WORK_DIR" >&2
+		echo "${script_name}: ERROR (${FUNCNAME[0]}): Bad CURRENT_WORK_DIR" >&2
 		exit 1
 	fi
 
 	if ! substring_begins ${path} ${CURRENT_WORK_DIR}; then
-		echo "${name}: ERROR (${FUNCNAME[0]}): Bad path: '${path}'" >&2
+		echo "${script_name}: ERROR (${FUNCNAME[0]}): Bad path: '${path}'" >&2
 		exit 1
 	fi
 
@@ -49,7 +49,7 @@ to_host() {
 	local path=${1}
 
 	if [[ ! ${HOST_WORK_DIR} ]]; then
-		echo "${name}: ERROR (${FUNCNAME[0]}): Bad HOST_WORK_DIR" >&2
+		echo "${script_name}: ERROR (${FUNCNAME[0]}): Bad HOST_WORK_DIR" >&2
 		exit 1
 	fi
 
@@ -96,7 +96,7 @@ check_directory() {
 	local usage="${3}"
 
 	if [[ ! -d "${src}" ]]; then
-		echo "${name}: ERROR (${FUNCNAME[0]}): Directory not found${msg}: '${src}'" >&2
+		echo "${script_name}: ERROR (${FUNCNAME[0]}): Directory not found${msg}: '${src}'" >&2
 		[[ -z "${usage}" ]] || usage
 		exit 1
 	fi
@@ -108,7 +108,7 @@ check_file() {
 	local usage="${3}"
 
 	if [[ ! -f "${src}" ]]; then
-		echo -e "${name}: ERROR: File not found${msg}: '${src}'" >&2
+		echo -e "${script_name}: ERROR: File not found${msg}: '${src}'" >&2
 		[[ -z "${usage}" ]] || usage
 		exit 1
 	fi
@@ -120,7 +120,7 @@ check_opt() {
 	value=${@}
 
 	if [[ ! ${value} ]]; then
-		echo "${name}: ERROR (${FUNCNAME[0]}): Must provide --${option} option." >&2
+		echo "${script_name}: ERROR (${FUNCNAME[0]}): Must provide --${option} option." >&2
 		usage
 		exit 1
 	fi
@@ -198,7 +198,7 @@ get_user_home() {
 	local result;
 
 	if ! result="$(getent passwd ${user})"; then
-		echo "${name}: ERROR (${FUNCNAME[0]}): No home for user '${user}'" >&2
+		echo "${script_name}: ERROR (${FUNCNAME[0]}): No home for user '${user}'" >&2
 		exit 1
 	fi
 	echo ${result} | cut -d ':' -f 6
@@ -214,7 +214,7 @@ get_arch() {
 	ppc64|powerpc64)		echo "ppc64" ;;
 	ppc64le|powerpc64le)		echo "ppc64le" ;;
 	*)
-		echo "${name}: ERROR (${FUNCNAME[0]}): Bad arch '${a}'" >&2
+		echo "${script_name}: ERROR (${FUNCNAME[0]}): Bad arch '${a}'" >&2
 		exit 1
 		;;
 	esac
@@ -230,7 +230,7 @@ get_triple() {
 	ppc64)		echo "powerpc64-linux-gnu" ;;
 	ppc64le)	echo "powerpc64le-linux-gnu" ;;
 	*)
-		echo "${name}: ERROR (${FUNCNAME[0]}): Bad arch '${a}'" >&2
+		echo "${script_name}: ERROR (${FUNCNAME[0]}): Bad arch '${a}'" >&2
 		exit 1
 		;;
 	esac
@@ -244,7 +244,7 @@ kernel_arch() {
 	arm64*)		echo "arm64" ;;
 	ppc*)		echo "powerpc" ;;
 	*)
-		echo "${name}: ERROR (${FUNCNAME[0]}): Bad arch '${a}'" >&2
+		echo "${script_name}: ERROR (${FUNCNAME[0]}): Bad arch '${a}'" >&2
 		exit 1
 		;;
 	esac
@@ -278,7 +278,7 @@ find_addr() {
 	fi
 
 	if [[ ! -x "$(command -v dig)" ]]; then
-		echo "${name}: WARNING: Please install dig (dnsutils)." >&2
+		echo "${script_name}: WARNING: Please install dig (dnsutils)." >&2
 	else
 		_find_addr__addr="$(dig ${host} +short)"
 	fi
@@ -288,7 +288,7 @@ find_addr() {
 			| egrep -o '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' || :)"
 
 		if [[ ! ${_find_addr__addr} ]]; then
-			echo "${name}: ERROR (${FUNCNAME[0]}): '${host}' DNS entry not found." >&2
+			echo "${script_name}: ERROR (${FUNCNAME[0]}): '${host}' DNS entry not found." >&2
 			exit 1
 		fi
 	fi
@@ -303,13 +303,13 @@ wait_pid() {
 	local timeout_sec=${2}
 	timeout_sec=${timeout_sec:-300}
 
-	echo "${name}: INFO: Waiting ${timeout_sec}s for pid ${pid}." >&2
+	echo "${script_name}: INFO: Waiting ${timeout_sec}s for pid ${pid}." >&2
 
 	let count=1
 	while kill -0 ${pid} &> /dev/null; do
 		let count=count+5
 		if [[ count -gt ${timeout_sec} ]]; then
-			echo "${name}: ERROR (${FUNCNAME[0]}): wait_pid failed for pid ${pid}." >&2
+			echo "${script_name}: ERROR (${FUNCNAME[0]}): wait_pid failed for pid ${pid}." >&2
 			exit -1
 		fi
 		sleep 5s
@@ -335,7 +335,7 @@ git_get_repo_name() {
 	repo_name="${repo_name%.*}"
 
 	if [[ -z "${repo_name}" ]]; then
-		echo "${name}: ERROR (${FUNCNAME[0]}): Bad repo: '${repo}'" >&2
+		echo "${script_name}: ERROR (${FUNCNAME[0]}): Bad repo: '${repo}'" >&2
 		exit 1
 	fi
 
@@ -350,12 +350,12 @@ git_set_remote() {
 	remote="$(git -C ${dir} remote -v | egrep 'origin' | cut -f2 | cut -d ' ' -f1)"
 
 	if [[ ${?} -ne 0 ]]; then
-		echo "${name}: ERROR (${FUNCNAME[0]}): Bad git repo ${dir}." >&2
+		echo "${script_name}: ERROR (${FUNCNAME[0]}): Bad git repo ${dir}." >&2
 		exit 1
 	fi
 
 	if [[ ${remote} != ${repo} ]]; then
-		echo "${name}: INFO: Switching git remote ${remote} => ${repo}." >&2
+		echo "${script_name}: INFO: Switching git remote ${remote} => ${repo}." >&2
 		git -C ${dir} remote set-url origin ${repo}
 		git -C ${dir} remote -v
 	fi
@@ -378,16 +378,16 @@ git_checkout_safe() {
 		git clone ${repo} "${dir}"
 	else
 		if [[ $(git -C ${dir} status --porcelain) ]]; then
-			echo "${name}: INFO: Found local changes: ${dir}." >&2
+			echo "${script_name}: INFO: Found local changes: ${dir}." >&2
 			git -C ${dir} add .
 			git -C ${dir} commit -m ${backup}
 		fi
 
 		# FIXME: need to check with branch name???
 		if git -C ${dir} diff --no-ext-diff --quiet --exit-code origin; then
-			echo "${name}: INFO: Found local commits: ${dir}." >&2
+			echo "${script_name}: INFO: Found local commits: ${dir}." >&2
 			git -C ${dir} branch --copy ${backup}
-			echo "${name}: INFO: Saved local commits to branch ${backup}." >&2
+			echo "${script_name}: INFO: Saved local commits to branch ${backup}." >&2
 		fi
 	fi
 
@@ -419,7 +419,7 @@ run_shellcheck() {
 	shellcheck=${shellcheck:-"shellcheck"}
 
 	if ! test -x "$(command -v "${shellcheck}")"; then
-		echo "${name}: ERROR: Please install '${shellcheck}'." >&2
+		echo "${script_name}: ERROR: Please install '${shellcheck}'." >&2
 		exit 1
 	fi
 
