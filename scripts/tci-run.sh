@@ -184,6 +184,28 @@ on_exit() {
 	echo "${script_name}: Done:       ${result}" >&2
 }
 
+check_machine() {
+	local machine=${1}
+
+	if [[ ${machine} == "qemu" ]]; then
+		return
+	fi
+
+	set +e
+	${SCRIPTS_TOP}/checkout-query.sh -v ${machine}
+	result=${?}
+	set -e
+
+	if [[ ${result} -eq 0 ]]; then
+		return
+	elif [[ ${result} -eq 1 ]]; then
+		echo "${script_name}: ERROR: unknown machine: '${machine}'" >&2
+		usage
+		exit 1
+	fi
+	exit ${result}
+}
+
 check_rootfs_types() {
 	local given
 	local known
@@ -558,6 +580,9 @@ fi
 
 check_rootfs_types
 check_test_types
+if [[ ${step_run_tests} ]]; then
+	check_machine "${test_machine}"
+fi
 
 step_code="${step_build_kernel:-"0"}${step_build_bootstrap:-"0"}\
 ${step_build_rootfs:-"0"}${step_build_tests:-"0"}${step_run_tests:-"0"}\

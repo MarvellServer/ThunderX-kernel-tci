@@ -61,6 +61,14 @@ checkout() {
 	checkout_at_server ${TCI_CHECKOUT_SERVER} ${TCI_CHECKOUT_PORT} ${resource} ${seconds} _checkout__token
 }
 
+checkout_query() {
+	local resource=${1}
+	local -n _checkout_query__seconds=${2}
+
+	echo "${script_name}: WARNING: checkout_query: TODO" >&2
+	return 0
+}
+
 checkin_at_server() {
 	local server=${1}
 	local port=${2}
