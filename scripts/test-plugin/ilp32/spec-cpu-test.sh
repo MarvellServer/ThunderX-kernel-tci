@@ -51,7 +51,7 @@ rootfs_type=${rootfs_type#ID=}
 	set
 }  | tee -a ${log_file}
 
-tar -C ${test_home} -xf /ilp32-${TEST_NAME}-archive.tar.gz
+tar -C ${test_home} -xf /ilp32-${TEST_NAME}-tests.tar.gz
 mkdir -p /opt/ilp32/
 cp -a ${test_home}/${TEST_NAME}/ilp32-libraries/opt/ilp32/* /opt/ilp32/
 

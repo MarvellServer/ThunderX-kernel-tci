@@ -483,7 +483,10 @@ check_file ${config_file} " --config-file" "usage"
 source ${config_file}
 
 container_work_dir=${container_work_dir:-"/tci--test"}
+
 test_machine=${test_machine:-"qemu"}
+test_machine=${test_machine%-bmc}
+
 build_name=${build_name:-"${name%.*}-$(date +%m.%d)"}
 target_arch=${target_arch:-"arm64"}
 host_arch=$(get_arch "$(uname -m)")

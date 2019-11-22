@@ -3,7 +3,8 @@
 # ILP32 hello world test plug-in.
 
 test_usage_ilp32() {
-	local old_xtrace="$(shopt -po xtrace || :)"
+	local old_xtrace
+	old_xtrace="$(shopt -po xtrace || :)"
 	set +o xtrace
 	echo "  ${BASH_SOURCE##*/} - Build and run ILP32 hello world program." >&2
 	eval "${old_xtrace}"
@@ -28,6 +29,19 @@ test_setup_ilp32() {
 	return
 }
 
+ilp32_build_sub_test() {
+	local sub_test=${1}
+
+	HOST_WORK_DIR=${HOST_WORK_DIR} ${src_dir}/scripts/build-test-program.sh \
+		--src-top=${src_dir}/tests/${sub_test} \
+		--build-top=${build_dir}/tests/${sub_test} \
+		--prefix=${tool_prefix}
+
+	tar -czf ${tests_dir}/ilp32-${sub_test}-tests.tar.gz \
+		-C ${build_dir}/tests ${sub_test} \
+		-C ${src_dir} docker scripts
+}
+
 test_build_ilp32() {
 	local rootfs_type=${1}
 	local tests_dir=${2}
@@ -36,17 +50,15 @@ test_build_ilp32() {
 	local sysroot="$(cd ${3} && pwd)"
 	local kernel_src_dir="$(cd ${4} && pwd)"
 
-	local test_name='ilp32'
 	local src_repo=${ilp32_src_repo:-"https://github.com/glevand/ilp32--builder.git"}
 	local repo_branch=${ilp32_repo_branch:-"master"}
-	local src_dir="${tests_dir}/${test_name}-src"
-	local build_dir="${tests_dir}/${test_name}-build"
-	#local archive_file="${tests_dir}/${test_name}-archive.tar.gz"
-	local results_file="${tests_dir}/${test_name}-results.tar.gz"
+	local src_dir="${tests_dir}/ilp32-src"
+	local build_dir="${tests_dir}/ilp32-build"
+	local results_archive="${tests_dir}/ilp32-results.tar.gz"
 	local ilp32_libs_file="${tests_dir}/ilp32-libraries.tar.gz"
 	local tool_prefix="/opt/ilp32"
 
-	rm -rf ${build_dir} ${results_file} ${tests_dir}/${test_name}*-archive.tar.gz
+	rm -rf ${build_dir} ${results_archive} ${tests_dir}/ilp32*-tests.tar.gz
 
 	# FIXME: For debug.
 	#src_repo="/tci--test/ilp32--builder.git-copy"
@@ -85,34 +97,16 @@ test_build_ilp32() {
 			--runner
 	fi
 
-	HOST_WORK_DIR=${HOST_WORK_DIR} ${src_dir}/scripts/build-test-program.sh \
-		--src-top=${src_dir}/tests/hello-world \
-		--build-top=${build_dir}/tests/hello-world \
-		--prefix=${tool_prefix}
-
-	# FIXME: done by test's archive_libs.
-	#tar -czf ${tests_dir}/ilp32-libraries.tar.gz \
-	#	-C ${build_dir}/tests/hello-world/ilp32-libraries ${tool_prefix#/}
-
-	tar -czf ${tests_dir}//ilp32-hello-world-archive.tar.gz \
-		-C ${build_dir}/tests hello-world \
-		-C ${src_dir} docker scripts
-
-	HOST_WORK_DIR=${HOST_WORK_DIR} ${src_dir}/scripts/build-test-program.sh \
-		--src-top=${src_dir}/tests/vdso-test \
-		--build-top=${build_dir}/tests/vdso-test \
-		--prefix=${tool_prefix}
-
-	tar -czf ${tests_dir}/ilp32-vdso-test-archive.tar.gz \
-		-C ${build_dir}/tests vdso-test \
-		-C ${src_dir} docker scripts
+	ilp32_build_sub_test "hello-world"
+	ilp32_build_sub_test "vdso-tests"
+	ilp32_build_sub_test "gcc-tests"
 
 	if [[ ! ${CURRENT_WORK_DIR} ]]; then
-		echo "${name}: ERROR (${FUNCNAME[0]}): Bad CURRENT_WORK_DIR" >&2
+		echo "${script_name}: ERROR (${FUNCNAME[0]}): Bad CURRENT_WORK_DIR" >&2
 		exit 1
 	fi
 
-	#tar -czf ${tests_dir}/ilp32-spec-cpu-archive.tar.gz \
+	#tar -czf ${tests_dir}/ilp32-spec-cpu-tests.tar.gz \
 	#	-C ${src_dir}/tests lib spec-cpu \
 	#	-C ${CURRENT_WORK_DIR} cpu2017-src
 
@@ -124,44 +118,44 @@ ilp32_run_sub_test() {
 	local sub_test=${1}
 	local test_driver=${2}
 
-	local archive_file="${tests_dir}/${test_name}-${sub_test}-archive.tar.gz"
-	local results_file="${tests_dir}/${test_name}-${sub_test}-results.tar.gz"
-	local remote_results_file="/${test_name}-${sub_test}-results.tar.gz"
+	local tests_archive="${tests_dir}/ilp32-${sub_test}-tests.tar.gz"
+	local results_archive="${tests_dir}/ilp32-${sub_test}-results.tar.gz"
+	local remote_results_archive="/ilp32-${sub_test}-results.tar.gz"
 
-	rm -rf ${results_file}
+	rm -rf ${results_archive}
 
-	scp ${ssh_opts} ${archive_file} ${ssh_host}:/
+	scp ${ssh_opts} ${tests_archive} ${ssh_host}:/
 	scp ${ssh_opts} ${TEST_TOP}/${test_driver} ${ssh_host}:/
 	ssh ${ssh_opts} ${ssh_host} chmod +x /${test_driver}
 	ssh ${ssh_opts} ${ssh_host} "TEST_NAME=${sub_test} sh -c 'ls -l / && env'"
 
 	set +e
 	timeout ${timeout} ssh ${ssh_opts} ${ssh_host} \
-		"TEST_NAME=${sub_test} RESULTS_FILE=${remote_results_file} sh -c '/${test_driver}'"
+		"TEST_NAME=${sub_test} RESULTS_FILE=${remote_results_archive} sh -c '/${test_driver}'"
 	result=${?}
 	set -e
 
 	if [[ ${result} -eq 124 ]]; then
-		echo "${FUNCNAME[0]}: Done, ${test_name}-${sub_test} failed: timeout." >&2
+		echo "${FUNCNAME[0]}: Done, ilp32-${sub_test} failed: timeout." >&2
 	elif [[ ${result} -ne 0 ]]; then
-		echo "${FUNCNAME[0]}: Done, ${test_name}-${sub_test} failed: '${result}'." >&2
+		echo "${FUNCNAME[0]}: Done, ilp32-${sub_test} failed: '${result}'." >&2
 	else
-		echo "${FUNCNAME[0]}: Done, ${test_name}-${sub_test} success." >&2
+		echo "${FUNCNAME[0]}: Done, ilp32-${sub_test} success." >&2
 	fi
 
-	scp ${ssh_opts} ${ssh_host}:${remote_results_file} ${results_file}
+	scp ${ssh_opts} ${ssh_host}:${remote_results_archive} ${results_archive}
 }
 
 ilp32_run_spec_cpu() {
 	local sub_test=spec-cpu
 
-	local archive_file="${tests_dir}/${test_name}-${sub_test}-archive.tar.gz"
-	local results_file="${tests_dir}/${test_name}-${sub_test}-results.tar.gz"
-	local remote_results_file="/${test_name}-${sub_test}-results.tar.gz"
+	local tests_archive="${tests_dir}/ilp32-${sub_test}-tests.tar.gz"
+	local results_archive="${tests_dir}/ilp32-${sub_test}-results.tar.gz"
+	local remote_results_archive="/ilp32-${sub_test}-results.tar.gz"
 
-	rm -rf ${results_file}
+	rm -rf ${results_archive}
 
-	scp ${ssh_opts} ${archive_file} ${ssh_host}:/
+	scp ${ssh_opts} ${tests_archive} ${ssh_host}:/
 }
 
 test_run_ilp32() {
@@ -171,21 +165,23 @@ test_run_ilp32() {
 	local -n _test_run_ilp32__ssh_opts=${4}
 	local ssh_opts="${_test_run_ilp32__ssh_opts}"
 
-	local test_name='ilp32'
 	local src_repo=${ilp32_src_repo:-"https://github.com/glevand/ilp32--builder.git"}
 	local repo_branch=${ilp32_repo_branch:-"master"}
-	local src_dir="${tests_dir}/${test_name}-src"
-	local build_dir="${tests_dir}/${test_name}-build"
+	local src_dir="${tests_dir}/ilp32-src"
+	local build_dir="${tests_dir}/ilp32-build"
 	local timeout=${ilp32_timeout:-"5m"}
 
-	echo "INSIDE @${BASH_SOURCE[0]}:${FUNCNAME[0]}@"
 	echo "ssh_opts = @${ssh_opts}@"
 
 	set -x
 
-	ilp32_run_sub_test "hello-world" "generic-test.sh"
-	ilp32_run_sub_test "vdso-test" "generic-test.sh"
-	#ilp32_run_sub_test "spec-cpu" "spec-cpu-test.sh"
+	for ((i = 0; i < 100; i++)); do
+		#ilp32_run_sub_test "hello-world" "generic-test.sh"
+		ilp32_run_sub_test "vdso-tests" "generic-test.sh"
+		ilp32_run_sub_test "gcc-tests" "generic-test.sh"
+		#ilp32_run_sub_test "spec-cpu" "spec-cpu-test.sh"
+	done
+
 }
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}/.." && pwd)"}
