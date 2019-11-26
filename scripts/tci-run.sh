@@ -487,7 +487,7 @@ container_work_dir=${container_work_dir:-"/tci--test"}
 test_machine=${test_machine:-"qemu"}
 test_machine=${test_machine%-bmc}
 
-build_name=${build_name:-"${name%.*}-$(date +%m.%d)"}
+build_name=${build_name:-"${script_name%.*}-$(date +%m.%d)"}
 target_arch=${target_arch:-"arm64"}
 host_arch=$(get_arch "$(uname -m)")
 
