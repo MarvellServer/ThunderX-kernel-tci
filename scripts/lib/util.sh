@@ -383,9 +383,13 @@ git_checkout_safe() {
 	local repo=${2}
 	local branch=${3:-'master'}
 
-	if [[ -e "${dir}" ]] && ! git -C "${dir}" status --porcelain; then
-		echo "${script_name}: INFO: Local changes: ${dir}." >&2
-		cp -a --link "${dir}" "${dir}.backup-$(date +%Y.%m.%d-%H.%M.%S)"
+	if [[ -e "${dir}" ]]; then
+		if [[ ! -e "${dir}/.git/config" ]]; then
+			mv "${dir}" "${dir}.backup-$(date +%Y.%m.%d-%H.%M.%S)"
+		elif ! git -C "${dir}" status --porcelain; then
+			echo "${script_name}: INFO: Local changes: ${dir}." >&2
+			cp -a --link "${dir}" "${dir}.backup-$(date +%Y.%m.%d-%H.%M.%S)"
+		fi
 	fi
 
 	git_checkout_force "${dir}" "${repo}" "${branch}"
