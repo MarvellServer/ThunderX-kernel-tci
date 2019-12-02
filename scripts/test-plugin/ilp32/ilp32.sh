@@ -63,7 +63,7 @@ test_build_ilp32() {
 	# FIXME: For debug.
 	#src_repo="/tci--test/ilp32--builder.git-copy"
 
-	git_checkout_safe ${src_dir} ${src_repo} ${repo_branch}
+	git_checkout_force ${src_dir} ${src_repo} ${repo_branch}
 
 	mkdir -p ${build_dir}
 	pushd ${build_dir}
@@ -175,8 +175,8 @@ test_run_ilp32() {
 
 	set -x
 
-	for ((i = 0; i < 100; i++)); do
-		#ilp32_run_sub_test "hello-world" "generic-test.sh"
+	for ((i = 0; i < 1; i++)); do
+		ilp32_run_sub_test "hello-world" "generic-test.sh"
 		ilp32_run_sub_test "vdso-tests" "generic-test.sh"
 		ilp32_run_sub_test "gcc-tests" "generic-test.sh"
 		#ilp32_run_sub_test "spec-cpu" "spec-cpu-test.sh"

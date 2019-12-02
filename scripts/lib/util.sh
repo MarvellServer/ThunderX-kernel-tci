@@ -361,43 +361,6 @@ git_set_remote() {
 	fi
 }
 
-git_checkout_safe() {
-	local dir=${1}
-	local repo=${2}
-	local branch=${3:-'master'}
-
-	local backup
-	backup="backup-$(date +%Y.%m.%d-%H.%M.%S)"
-
-	if [[ ! -f "${dir}/.git/config" ]]; then
-		if [[ -e ${dir} ]]; then
-			mv ${dir} ${dir}.${backup}
-		else
-			mkdir -p "${dir}/.."
-		fi
-		git clone ${repo} "${dir}"
-	else
-		if [[ $(git -C ${dir} status --porcelain) ]]; then
-			echo "${script_name}: INFO: Found local changes: ${dir}." >&2
-			git -C ${dir} add .
-			git -C ${dir} commit -m ${backup}
-		fi
-
-		# FIXME: need to check with branch name???
-		if git -C ${dir} diff --no-ext-diff --quiet --exit-code origin; then
-			echo "${script_name}: INFO: Found local commits: ${dir}." >&2
-			git -C ${dir} branch --copy ${backup}
-			echo "${script_name}: INFO: Saved local commits to branch ${backup}." >&2
-		fi
-	fi
-
-	git_set_remote ${dir} ${repo}
-	git -C ${dir} remote update
-	git -C ${dir} checkout --force ${branch}
-	git -C ${dir} add .
-	git -C ${dir} reset --hard ${branch}
-}
-
 git_checkout_force() {
 	local dir=${1}
 	local repo=${2}
@@ -405,13 +368,27 @@ git_checkout_force() {
 
 	if [[ ! -d "${dir}" ]]; then
 		mkdir -p "${dir}/.."
-		git clone ${repo} "${dir}"
+		git clone "${repo}" "${dir}"
 	fi
 
-	git_set_remote ${dir} ${repo}
-	git -C ${dir} remote update
-	git -C ${dir} checkout --force ${branch}
-	git -C ${dir} pull
+	git_set_remote "${dir}" "${repo}"
+	git -C "${dir}" remote update -p
+	git -C "${dir}" checkout --force "${branch}"
+	git -C "${dir}" pull "${repo}" "${branch}"
+	git -C "${dir}" status
+}
+
+git_checkout_safe() {
+	local dir=${1}
+	local repo=${2}
+	local branch=${3:-'master'}
+
+	if [[ -e "${dir}" ]] && ! git -C "${dir}" status --porcelain; then
+		echo "${script_name}: INFO: Local changes: ${dir}." >&2
+		cp -a --link "${dir}" "${dir}.backup-$(date +%Y.%m.%d-%H.%M.%S)"
+	fi
+
+	git_checkout_force "${dir}" "${repo}" "${branch}"
 }
 
 run_shellcheck() {
