@@ -66,11 +66,11 @@ test_run_sys_info() {
 	set -e
 
 	if [[ ${result} -eq 124 ]]; then
-		echo "${FUNCNAME[0]}: Done, ilp32-${sub_test} failed: timeout." >&2
+		echo "${FUNCNAME[0]}: Done, sys-info failed: timeout." >&2
 	elif [[ ${result} -ne 0 ]]; then
-		echo "${FUNCNAME[0]}: Done, ilp32-${sub_test} failed: '${result}'." >&2
+		echo "${FUNCNAME[0]}: Done, sys-info failed: '${result}'." >&2
 	else
-		echo "${FUNCNAME[0]}: Done, ilp32-${sub_test} success." >&2
+		echo "${FUNCNAME[0]}: Done, sys-info success." >&2
 	fi
 
 	scp ${ssh_opts} ${ssh_host}:${remote_results_archive} ${results_archive}
