@@ -1,9 +1,5 @@
 # System info test plug-in.
 
-SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}/.." && pwd)"}
-
-source ${SCRIPTS_TOP}/lib/util.sh
-
 test_usage_sys_info() {
 	local old_xtrace
 	old_xtrace="$(shopt -po xtrace || :)"
@@ -53,45 +49,34 @@ test_run_sys_info() {
 	local -n _test_run_sys_info__ssh_opts=${4}
 	local ssh_opts="${_test_run_sys_info__ssh_opts}"
 
-	local test_name='sys-info'
-	local results_file="${tests_dir}/${test_name}-results.tar.gz"
+	local test_driver="sys-info-test.sh"
+	local results_archive="${tests_dir}/sys-info-results.tar.gz"
+	local remote_results_archive="/sys-info-results.tar.gz"
 	local timeout=${sys_info_timeout:-"5m"}
 
-	echo "INSIDE @${BASH_SOURCE[0]}:${FUNCNAME[0]}@"
-	echo "ssh_opts = @${ssh_opts}@"
+	rm -rf ${results_archive}
 
-	set -x
-	rm -rf ${results_file}
+	scp ${ssh_opts} ${TEST_TOP}/${test_driver} ${ssh_host}:/
+	ssh ${ssh_opts} ${ssh_host} chmod +x /${test_driver}
 
 	set +e
-	timeout ${timeout} ssh ${ssh_opts} ${ssh_host} 'sh -s' <<'EOF'
-export PS4='+sys-info-test-script:${LINENO}: '
-
-set -ex
-
-
-mkdir -p ./results
-
-id | tee ./results/id.log
-cat /proc/partitions | tee ./results/partitions.log
-printenv | tee ./results/printenv.log
-uname -a | tee ./results/uname.log
-if [[ -f /usr/sbin/dmidecode ]]; then
-	/usr/sbin/dmidecode | tee ./results/dmidecode.log
-fi
-
-tar -czvf ${HOME}/sys-info-results.tar.gz  ./results
-EOF
+	timeout ${timeout} ssh ${ssh_opts} ${ssh_host} \
+		"TEST_NAME='sys-info' RESULTS_FILE='${remote_results_archive}' sh -c '/${test_driver}'"
 	result=${?}
 	set -e
 
 	if [[ ${result} -eq 124 ]]; then
-		echo "${FUNCNAME[0]}: Done, failed: timeout." >&2
+		echo "${FUNCNAME[0]}: Done, ilp32-${sub_test} failed: timeout." >&2
 	elif [[ ${result} -ne 0 ]]; then
-		scp ${ssh_opts} ${ssh_host}:sys-info-results.tar.gz ${results_file} || :
-		echo "${FUNCNAME[0]}: Done, failed: '${result}'." >&2
+		echo "${FUNCNAME[0]}: Done, ilp32-${sub_test} failed: '${result}'." >&2
 	else
-		scp ${ssh_opts} ${ssh_host}:sys-info-results.tar.gz ${results_file}
-		echo "${FUNCNAME[0]}: Done, success." >&2
+		echo "${FUNCNAME[0]}: Done, ilp32-${sub_test} success." >&2
 	fi
+
+	scp ${ssh_opts} ${ssh_host}:${remote_results_archive} ${results_archive}
 }
+
+SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}/.." && pwd)"}
+source ${SCRIPTS_TOP}/lib/util.sh
+
+TEST_TOP=${TEST_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
