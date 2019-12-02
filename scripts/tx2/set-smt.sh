@@ -181,8 +181,9 @@ PS4='\[\033[0;33m\]+ ${BASH_SOURCE##*/}:${LINENO}:(${FUNCNAME[0]:-"?"}): \[\033[
 script_name="${0##*/}"
 
 trap "on_exit 'failed.'" EXIT
-
 set -e
+
+process_opts "${@}"
 
 host_arch="$(uname -m)"
 
@@ -200,15 +201,13 @@ file_index=3
 
 #op_print_all
 
-op=${name%%.*}
+op=${script_name%%.*}
 op=${op##*-}
 
 op_array="${op}_ops"[@]
 op_array=( "${!op_array}" )
 
 #echo "${LINENO}: op = '${op_array[name_index]}', values = '${op_array[values_index]}', file = '${op_array[file_index]}'" >&2
-
-process_opts "${@}"
 
 if [[ -x "$(command -v dmidecode)" ]]; then
 	dmidecode="dmidecode"
