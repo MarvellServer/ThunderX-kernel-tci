@@ -189,6 +189,9 @@ iface lo inet loopback
 auto eth0
 iface eth0 inet dhcp
 
+auto eth1
+iface eth1 inet dhcp
+
 #auto enP2p1s0v0
 #iface enP2p1s0v0 inet dhcp
 
