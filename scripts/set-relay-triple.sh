@@ -84,7 +84,7 @@ fi
 relay_triple=$(relay_resolve_triple ${relay_triple})
 
 token=$(relay_triple_to_token ${relay_triple})
-out_file=${out_file:-"${kernel}.${token}"}
+out_file="${out_file:-${kernel}.${token}}"
 
 if [[ ${usage} ]]; then
 	usage
