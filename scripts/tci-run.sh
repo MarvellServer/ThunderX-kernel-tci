@@ -23,6 +23,7 @@ usage() {
 	echo "                      Default: '${rootfs_types}'." >&2
 	echo "  --test-types      - Test types to run {$(clean_ws ${known_test_types}) all}." >&2
 	echo "                      Default: '${test_types}'." >&2
+	echo "  --hostfwd-offset  - QEMU hostfwd port offset. Default: '${hostfwd_offset}'." >&2
 	echo "Option steps:" >&2
 	echo "  --enter               - Enter container, no builds." >&2
 	echo "  -1 --build-kernel     - Build kernel." >&2
@@ -57,7 +58,7 @@ process_opts() {
 	local long_opts="\
 arch:,help-all,config-file:,help,verbose,\
 build-name:,linux-branch:,linux-config:,linux-repo:,linux-src-dir:,\
-test-machine:,systemd-debug,rootfs-types:,test-types:,\
+test-machine:,systemd-debug,rootfs-types:,test-types:,hostfwd-offset:,\
 enter,build-kernel,build-bootstrap,build-rootfs,build-tests,run-tests"
 
 	local opts
@@ -123,6 +124,10 @@ enter,build-kernel,build-bootstrap,build-rootfs,build-tests,run-tests"
 			;;
 		--test-types)
 			test_types="${2}"
+			shift 2
+			;;
+		--hostfwd-offset)
+			hostfwd_offset="${2}"
 			shift 2
 			;;
 		--enter)
@@ -421,7 +426,7 @@ run_tests() {
 
 	if [[ ${test_machine} == 'qemu' ]]; then
 		test_script="${SCRIPTS_TOP}/run-kernel-qemu-tests.sh"
-		extra_args+=" --arch=${target_arch}"
+		extra_args+=" --arch=${target_arch} ${hostfwd_offset:+--hostfwd-offset=${hostfwd_offset}}"
 	else
 		test_script="${SCRIPTS_TOP}/run-kernel-remote-tests.sh"
 		extra_args+=" --test-machine=${test_machine}"
