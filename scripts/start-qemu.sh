@@ -236,8 +236,9 @@ arm64--amd64)
 amd64--arm64)
 	have_efi=1
 	qemu_exe="qemu-system-aarch64"
-	qemu_args+=" -machine virt,gic-version=3 -cpu cortex-a57 -m 5120 -smp 2"
-	#qemu_args+=" -machine virt,gic-version=3 -cpu cortex-a57 -m 15360 -smp 2"
+	qemu_mem="16384" # 16G
+	qemu_mem=${qemu_mem:-5120}
+	qemu_args+=" -machine virt,gic-version=3 -cpu cortex-a57 -m ${qemu_mem} -smp 2"
 	;;
 arm64--arm64)
 	have_efi=1
