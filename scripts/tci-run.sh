@@ -13,10 +13,11 @@ usage() {
 	echo "  -h --help         - Show this help and exit." >&2
 	echo "  -v --verbose      - Verbose execution." >&2
 	echo "  --build-name      - Build name. Default: '${build_name}'." >&2
-	echo "  --linux-branch    - Linux kernel git repository branch. Default: ${kernel_branch}." >&2
-	echo "  --linux-config    - URL of an alternate kernel config. Default: ${kernel_config}." >&2
-	echo "  --linux-repo      - Linux kernel git repository URL. Default: ${kernel_repo}." >&2
-	echo "  --linux-src-dir   - Linux kernel git working tree. Default: ${kernel_src_dir}." >&2
+	echo "  --linux-config    - URL of an alternate kernel config file. Default: '${linux_config}'." >&2
+	echo "  --linux-source    - Linux kernel source tree path. Default: '${linux_source}'." >&2
+	echo "  --linux-repo      - Linux kernel git repository URL. Default: '${linux_repo}'." >&2
+	echo "  --linux-branch    - Linux kernel git repository branch. Default: '${linux_branch}'." >&2
+	echo "  --linux-src-dir   - Linux kernel git repository path. Default: '${linux_src_dir}'." >&2
 	echo "  --test-machine    - Test machine name {$(clean_ws ${TCI_TARGET_BMC_LIST}) qemu}. Default: '${test_machine}'." >&2
 	echo "  --systemd-debug   - Run systemd with debug options. Default: '${systemd_debug}'." >&2
 	echo "  --rootfs-types    - Rootfs types to build {$(clean_ws ${known_rootfs_types}) all}." >&2
@@ -57,7 +58,8 @@ process_opts() {
 	local short_opts="ac:hv12345"
 	local long_opts="\
 arch:,help-all,config-file:,help,verbose,\
-build-name:,linux-branch:,linux-config:,linux-repo:,linux-src-dir:,\
+build-name:,\
+linux-config:,linux-source:,linux-repo:,linux-branch:,linux-src-dir:,\
 test-machine:,systemd-debug,rootfs-types:,test-types:,hostfwd-offset:,\
 enter,build-kernel,build-bootstrap,build-rootfs,build-tests,run-tests"
 
@@ -94,20 +96,24 @@ enter,build-kernel,build-bootstrap,build-rootfs,build-tests,run-tests"
 			build_name="${2}"
 			shift 2
 			;;
-		--linux-branch)
-			kernel_branch="${2}"
+		--linux-config)
+			linux_config="${2}"
 			shift 2
 			;;
-		--linux-config)
-			kernel_config="${2}"
+		--linux-source)
+			linux_source="${2}"
 			shift 2
 			;;
 		--linux-repo)
-			kernel_repo="${2}"
+			linux_repo="${2}"
+			shift 2
+			;;
+		--linux-branch)
+			linux_branch="${2}"
 			shift 2
 			;;
 		--linux-src-dir)
-			kernel_src_dir="${2}"
+			linux_src_dir="${2}"
 			shift 2
 			;;
 		--test-machine)
@@ -272,19 +278,13 @@ check_test_types() {
 	fi
 }
 
-build_kernel() {
-	local repo=${1}
-	local branch=${2}
-	local config=${3}
-	local fixup_spec=${4}
-	local platform_args=${5}
-	local src_dir=${6}
-	local build_dir=${7}
-	local install_dir=${8}
-
-	rm -rf ${build_dir} ${install_dir}
-
-	git_checkout_safe ${src_dir} ${repo} ${branch}
+build_kernel_from_src() {
+	local config=${1}
+	local fixup_spec=${2}
+	local platform_args=${3}
+	local src_dir=${4}
+	local build_dir=${5}
+	local install_dir=${6}
 
 	${SCRIPTS_TOP}/build-linux-kernel.sh \
 		--build-dir=${build_dir} \
@@ -298,18 +298,41 @@ build_kernel() {
 			curl --silent --show-error --location ${config} \
 				> ${build_dir}/.config
 		fi
-	else
-		bash -x ${SCRIPTS_TOP}/set-config-opts.sh \
-			--verbose \
-			${platform_args:+"--platform-args='${platform_args}'"} \
-			${fixup_spec} ${build_dir}/.config
 	fi
+
+	bash -x ${SCRIPTS_TOP}/set-config-opts.sh \
+		--verbose \
+		${platform_args:+"--platform-args='${platform_args}'"} \
+		${fixup_spec} ${build_dir}/.config
 
 	bash -x ${SCRIPTS_TOP}/build-linux-kernel.sh \
 		--build-dir=${build_dir} \
 		--install-dir=${install_dir} \
 		${verbose:+--verbose} \
 		${target_arch} ${src_dir} all
+}
+
+build_kernel_from_repo() {
+	local repo=${1}
+	local branch=${2}
+	local config=${3}
+	local fixup_spec=${4}
+	local platform_args=${5}
+	local src_dir=${6}
+	local build_dir=${7}
+	local install_dir=${8}
+
+	rm -rf ${build_dir} ${install_dir}
+
+	git_checkout_safe ${src_dir} ${repo} ${branch}
+
+	build_kernel_from_src \
+		"${config}" \
+		"${fixup_spec}" \
+		"${platform_args}" \
+		"${src_dir}" \
+		"${build_dir}" \
+		"${install_dir}"
 }
 
 build_kernel_with_initrd() {
@@ -508,12 +531,21 @@ rootfs_types="${rootfs_types//,/ }"
 test_types=${test_types:-"sys-info"}
 test_types="${test_types//,/ }"
 
-kernel_repo=${kernel_repo:-"https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git"}
-kernel_branch=${kernel_branch:-"linux-5.2.y"}
-kernel_config=${kernel_config:-"defconfig"}
+linux_config=${linux_config:-"defconfig"}
 
-kernel_repo_name=$(git_get_repo_name ${kernel_repo})
-kernel_src_dir=${kernel_src_dir:-"${top_build_dir}/${kernel_repo_name}"}
+if [[ ${linux_source} ]]; then
+	check_not_opt 'linux-source' 'linux-repo' ${linux_repo}
+	check_not_opt 'linux-source' 'linux-branch' ${linux_branch}
+	check_not_opt 'linux-source' 'linux-src-dir' ${linux_src_dir}
+
+	check_directory ${linux_source} "" "usage"
+	linux_src_dir="${linux_source}"
+else
+	linux_repo=${linux_repo:-"https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git"}
+	linux_branch=${linux_branch:-"linux-5.3.y"}
+	linux_src_dir=${linux_src_dir:-"${top_build_dir}/$(git_get_repo_name ${linux_repo})"}
+fi
+
 kernel_build_dir="${top_build_dir}/${target_arch}-kernel-build"
 kernel_install_dir="${top_build_dir}/${target_arch}-kernel-install"
 
@@ -613,9 +645,25 @@ mkdir -p ${top_build_dir}
 if [[ ${step_build_kernel} ]]; then
 	trap "on_exit '[build_kernel] failed.'" EXIT
 
-	build_kernel ${kernel_repo} ${kernel_branch} ${kernel_config} \
-		${fixup_spec} "${kernel_platform_args}" ${kernel_src_dir} \
-		${kernel_build_dir} ${kernel_install_dir}
+	if [[ ${linux_source} ]]; then
+		build_kernel_from_src \
+			"${linux_config}" \
+			"${fixup_spec}" \
+			"${kernel_platform_args}" \
+			"${linux_src_dir}" \
+			"${kernel_build_dir}" \
+			"${kernel_install_dir}"
+	else
+		build_kernel_from_repo \
+			"${linux_repo}" \
+			"${linux_branch}" \
+			"${linux_config}" \
+			"${fixup_spec}" \
+			"${kernel_platform_args}" \
+			"${linux_src_dir}" \
+			"${kernel_build_dir}" \
+			"${kernel_install_dir}"
+	fi
 fi
 
 for rootfs_type in ${rootfs_types}; do
@@ -647,7 +695,7 @@ for rootfs_type in ${rootfs_types}; do
 				${kernel_install_dir}
 			create_sysroot ${rootfs_type} ${image_dir}/rootfs \
 				${image_dir}/sysroot
-			#build_kernel_with_initrd ${kernel_src_dir} \
+			#build_kernel_with_initrd ${linux_src_dir} \
 			#	${kernel_build_dir} ${kernel_install_dir} \
 			#	${image_dir}
 		fi
@@ -655,7 +703,7 @@ for rootfs_type in ${rootfs_types}; do
 		if [[ ${step_build_tests} ]]; then
 			trap "on_exit '[build_tests] failed.'" EXIT
 			build_tests ${rootfs_type} ${test_name} ${tests_dir} \
-				${image_dir}/sysroot ${kernel_src_dir}
+				${image_dir}/sysroot ${linux_src_dir}
 		fi
 
 		if [[ ${step_run_tests} ]]; then

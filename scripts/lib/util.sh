@@ -126,6 +126,19 @@ check_opt() {
 	fi
 }
 
+check_not_opt() {
+	option1=${1}
+	option2=${2}
+	shift 2
+	value2=${@}
+
+	if [[ ${value2} ]]; then
+		echo "${script_name}: ERROR (${FUNCNAME[0]}): Can't use --${option2} with --${option1}." >&2
+		usage
+		exit 1
+	fi
+}
+
 relative_path_2() {
 	local base="${1}"
 	local target="${2}"
