@@ -16,7 +16,7 @@ project_from="centos"
 project_description="Builds a docker image that contains tools for ThunderX CI."
 
 PROJECT_TOP="${DOCKER_TOP}/${project_name}"
-VERSION=${VERSION:-"1"}
+VERSION=${VERSION:-"8.1"}
 DOCKER_NAME=${DOCKER_NAME:-"tci-${project_name}"}
 
 build_on_exit() {

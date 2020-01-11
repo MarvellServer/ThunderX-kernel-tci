@@ -146,8 +146,8 @@ docker_from_centos() {
 	local a="$(get_arch $(uname -m))"
 
 	case "${a}" in
-		amd64) echo "centos:7" ;;
-		arm64) echo "centos:7" ;;
+		amd64) echo "centos:8" ;;
+		arm64) echo "centos:8" ;;
 		*)
 			echo "${name}: ERROR: Unknown arch ${a}" >&2
 			exit 1

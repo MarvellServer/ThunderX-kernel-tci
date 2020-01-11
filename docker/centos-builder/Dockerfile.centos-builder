@@ -10,54 +10,54 @@ FROM ${DOCKER_FROM}
 ENV TCI_BUILDER 1
 ENV TCI_CENTOS_BUILDER 1
 
+#RUN \
+#	ls -l /etc/yum.repos.d/; \
+#	ping -c2 -n 8.8.8.8; \
+#	cat /etc/yum.repos.d/CentOS-Base.repo; \
+#	cat /etc/yum.repos.d/CentOS-AppStream.repo
+
 RUN \
-	yum -y install deltarpm \
+	sed --in-place 's/mirrorlist/#mirrorlist/' /etc/yum.repos.d/CentOS-Base.repo \
+	&& sed --in-place 's/#baseurl/baseurl/' /etc/yum.repos.d/CentOS-Base.repo \
+	&& sed --in-place 's/mirrorlist/#mirrorlist/' /etc/yum.repos.d/CentOS-AppStream.repo \
+	&& sed --in-place 's/#baseurl/baseurl/' /etc/yum.repos.d/CentOS-AppStream.repo \
 	&& yum -y update \
 	&& yum -y clean all \
-	&& yum -y group install development \
-	&& yum -y install \
-		bash \
+	&& yum -y group install development
+
+RUN \
+	yum -y install \
 		bash-completion \
-		ccache \
-		curl \
 		docker \
 		dosfstools \
-		git \
 		grub2-common \
-		inotify-tools \
 		ipmitool \
-		libncurses5-dev \
-		netcat-openbsd \
+		ncurses-devel \
 		OVMF \
-		qemu-system-arm \
-		qemu-system-x86-64 \
-		qemu-user \
 		rsync \
 		socat \
 		sudo \
-		texinfo \
 		tcpdump \
 		tftp \
 		vim \
-		wget \
-		yum-utils \
-	&& if [ "$(uname -m)" = "x86_64" ]; then \
-		yum -y install centos-release-scl \
-		&& yum -y install devtoolset-8 \
-		&& scl enable devtoolset-8 bash; fi ]
-	&& if [ "$(uname -m)" = "aarch64" ]; then \
-		yum -y install centos-release-scl-rh \
-		&& yum-config-manager --enable centos-sclo-rh-testing \
-		&& yum -y install devtoolset-8 ; fi
-		
+		wget
 
 CMD /bin/bash
 
-# FIXME: Missing from Debian:
+# FIXME: Missing:
 #		binfmt-support \
+#		ccache \
 #		dnsutils \
 #		isc-dhcp-server \
 #		net-tools \
 #		procps \
 #		qemu-utils \
 #		sbsigntool \
+#		inotify-tools \
+#		libncurses5-dev \
+#		netcat-openbsd \
+#		qemu-system-arm \
+#		qemu-system-x86-64 \
+#		qemu-user \
+#		texinfo \
+#		yum-util \
