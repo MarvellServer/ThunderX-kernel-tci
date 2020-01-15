@@ -360,15 +360,15 @@ git_set_remote() {
 	local repo=${2}
 	local remote
 
-	remote="$(git -C ${dir} remote -v | egrep 'origin' | cut -f2 | cut -d ' ' -f1)"
+	remote="$(git -C "${dir}" remote -v | grep -E --max-count=1 'origin' | cut -f2 | cut -d ' ' -f1)"
 
 	if [[ ${?} -ne 0 ]]; then
 		echo "${script_name}: ERROR (${FUNCNAME[0]}): Bad git repo ${dir}." >&2
 		exit 1
 	fi
 
-	if [[ ${remote} != ${repo} ]]; then
-		echo "${script_name}: INFO: Switching git remote ${remote} => ${repo}." >&2
+	if [[ "${remote}" != "${repo}" ]]; then
+		echo "${script_name}: INFO: Switching git remote '${remote}' => '${repo}'." >&2
 		git -C ${dir} remote set-url origin ${repo}
 		git -C ${dir} remote -v
 	fi
@@ -385,7 +385,10 @@ git_checkout_force() {
 	fi
 
 	git_set_remote "${dir}" "${repo}"
+
+	git -C "${dir}" checkout -- .
 	git -C "${dir}" remote update -p
+	git -C "${dir}" reset --hard origin/"${branch}"
 	git -C "${dir}" checkout --force "${branch}"
 	git -C "${dir}" pull "${repo}" "${branch}"
 	git -C "${dir}" status
