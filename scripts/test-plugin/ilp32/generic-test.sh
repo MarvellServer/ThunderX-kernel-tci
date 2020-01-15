@@ -150,15 +150,26 @@ for prog in ${test_progs}; do
 	run_test_prog "limited" "${test_home}/${TEST_NAME}" "${prog}"
 	#run_test_prog_verbose "limited" "${test_home}/${TEST_NAME}" "${prog}"
 
-	ulimit -s unlimited
-	ulimit -s
-	run_test_prog "unlimited" "${test_home}/${TEST_NAME}" "${prog}"
+	#ulimit -s unlimited
+	#ulimit -s
+	#run_test_prog "unlimited" "${test_home}/${TEST_NAME}" "${prog}"
 done
 
 ulimit -s ${orig_limit}
 
-if grep "Segmentation fault" ${log_file}; then
-	echo "ilp32-${TEST_NAME}: ERROR: Segmentation fault detected." >&2
+checks=(
+	'Segmentation fault'
+	'Internal error'
+)
+
+for check in "${checks[@]}"; do
+	if grep "${check}" ${log_file}; then
+		echo "ilp32-${TEST_NAME}: ERROR: '${check}' detected." >&2
+		check_failed=1
+	fi
+done
+
+if [[ ${check_failed} ]]; then
 	exit 1
 fi
 
