@@ -4,13 +4,13 @@
 on_exit() {
 	local result=${1}
 
-	tar -czvf ${RESULTS_FILE} ${results_dir}
+	tar -czvf "${RESULTS_FILE}" "${results_dir}"
 
-	echo "ilp32-${TEST_NAME}: Done: ${result}" >&2
+	echo "GENERIC TEST RESULT: ilp32-${TEST_NAME}: Done: ${result}" >&2
 }
 
 print_sys_info() {
-	rootfs_type=$(egrep '^ID=' /etc/os-release)
+	rootfs_type=$(grep -E '^ID=' /etc/os-release)
 	rootfs_type=${rootfs_type#ID=}
 
 	set +x
@@ -106,16 +106,15 @@ run_test_prog_verbose() {
 }
 
 install_tests() {
-	tar -C ${test_home} -xf /ilp32-${TEST_NAME}-tests.tar.gz
+	tar -C "${test_home}" -xf "/ilp32-${TEST_NAME}-tests.tar.gz"
 
 	mkdir -p /opt/ilp32/
-	cp -a ${test_home}/${TEST_NAME}/ilp32-libraries/opt/ilp32/* /opt/ilp32/
+	cp -a "${test_home}/${TEST_NAME}/ilp32-libraries/opt/ilp32"/* /opt/ilp32/
 }
 
 #===============================================================================
 # program start
 #===============================================================================
-script_name="${0##*/}"
 TEST_NAME=${TEST_NAME:-"${1}"}
 
 export PS4='+ generic-test.sh (ilp32-${TEST_NAME}): '
@@ -125,27 +124,30 @@ trap "on_exit 'failed.'" EXIT
 set -e
 
 test_home="/ilp32-${TEST_NAME}"
-mkdir -p ${test_home}
-cd ${test_home}
+mkdir -p "${test_home}"
+cd "${test_home}"
 
-results_dir=${test_home}/results
-mkdir -p ${results_dir}
+results_dir="${test_home}/results"
+mkdir -p "${results_dir}"
 
-log_file=${results_dir}/test.log
-rm -f ${log_file}
+log_file="${results_dir}/test.log"
+rm -f "${log_file}"
 
 print_sys_info
 install_tests
 print_fs_info "${test_home}/${TEST_NAME}/ilp32-libraries/opt/ilp32/info.txt"
 
-test_progs=$(cat ${test_home}/${TEST_NAME}/test_manifest)
+which sh
+ls -l $(which sh)
+
+test_progs=$(cat "${test_home}/${TEST_NAME}/test_manifest")
 
 orig_limit=$(ulimit -s)
 
 for prog in ${test_progs}; do
 	echo "Running '${prog}'." >&2
 
-	ulimit -s ${orig_limit}
+	ulimit -s "${orig_limit}"
 	ulimit -s
 	run_test_prog "limited" "${test_home}/${TEST_NAME}" "${prog}"
 	#run_test_prog_verbose "limited" "${test_home}/${TEST_NAME}" "${prog}"
@@ -155,21 +157,21 @@ for prog in ${test_progs}; do
 	#run_test_prog "unlimited" "${test_home}/${TEST_NAME}" "${prog}"
 done
 
-ulimit -s ${orig_limit}
+ulimit -s "${orig_limit}"
 
-checks=(
-	'Segmentation fault'
-	'Internal error'
-)
+checks='Segmentation fault|Internal error'
+checks_IFS='|'
 
-for check in "${checks[@]}"; do
-	if grep "${check}" ${log_file}; then
+IFS="${checks_IFS}"
+for check in ${checks}; do
+	if grep "${check}" "${log_file}"; then
 		echo "ilp32-${TEST_NAME}: ERROR: '${check}' detected." >&2
 		check_failed=1
 	fi
 done
+unset IFS
 
-if [[ ${check_failed} ]]; then
+if [ ${check_failed} ]; then
 	exit 1
 fi
 
