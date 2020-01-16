@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
 usage() {
-	local target_list="$(clean_ws ${targets})"
-	local op_list="$(clean_ws ${ops})"
+	local target_list
+	target_list="$(clean_ws "${targets}")"
+	local op_list
+	op_list="$(clean_ws "${ops}")"
 
 	local old_xtrace
 	old_xtrace="$(shopt -po xtrace || :)"
@@ -55,7 +57,7 @@ build-dir:,install-dir:,local-version:"
 			shift
 			;;
 		-v | --verbose)
-			#verbose=1
+			verbose=1
 			set -x
 			shift
 			;;
@@ -75,6 +77,9 @@ build-dir:,install-dir:,local-version:"
 			target=${2}
 			kernel_src=${3}
 			op=${4}
+			if [[ ${check} ]]; then
+				break
+			fi
 			if ! shift 4; then
 				echo "${script_name}: ERROR: Missing args:" >&2
 				echo "${script_name}:        <target>='${target}'" >&2
@@ -84,14 +89,14 @@ build-dir:,install-dir:,local-version:"
 				exit 1
 			fi
 			if [[ -n "${1}" ]]; then
-				echo "${script_name}: ERROR: Got extra args: '${@}'" >&2
+				echo "${script_name}: ERROR: Got extra args: '${*}'" >&2
 				usage
 				exit 1
 			fi
 			break
 			;;
 		*)
-			echo "${script_name}: ERROR: Internal opts: '${@}'" >&2
+			echo "${script_name}: ERROR: Internal opts: '${*}'" >&2
 			exit 1
 			;;
 		esac
@@ -100,11 +105,12 @@ build-dir:,install-dir:,local-version:"
 
 on_exit() {
 	local result=${?}
-	local end_time="$(date)"
+	local end_time
+	end_time="$(date)"
 	local sec="${SECONDS}"
 
-	if [ -d ${tmp_dir} ]; then
-		rm -rf ${tmp_dir}
+	if [ -d "${tmp_dir}" ]; then
+		rm -rf "${tmp_dir}"
 	fi
 
 	set +x
@@ -124,11 +130,11 @@ on_exit() {
 }
 
 make_fresh() {
-	cp ${build_dir}/.config ${tmp_dir}/config.tmp
-	rm -rf ${build_dir}/{*,.*} &>/dev/null || :
+	cp "${build_dir}/.config" "${tmp_dir}/config.tmp"
+	rm -rf "${build_dir:?}"/{*,.*} &>/dev/null || :
 	eval "make ${make_options} mrproper"
 	eval "make ${make_options} defconfig"
-	cp ${tmp_dir}/config.tmp ${build_dir}/.config
+	cp "${tmp_dir}/config.tmp" "${build_dir}/.config"
 	eval "make ${make_options} olddefconfig"
 }
 
@@ -139,21 +145,22 @@ make_targets() {
 
 install_image() {
 	mkdir -p "${install_dir}/boot"
-	cp ${build_dir}/{defconfig,System.map,vmlinux} ${install_dir}/boot/
-	cp ${build_dir}/.config ${install_dir}/boot/config
-	${target_tool_prefix}strip -s -R .comment ${build_dir}/vmlinux -o ${install_dir}/boot/vmlinux.strip
+	cp "${build_dir}"/{defconfig,System.map,vmlinux} "${install_dir}/boot/"
+	cp "${build_dir}/.config" "${install_dir}/boot/config"
+	"${target_tool_prefix}strip" -s -R .comment "${build_dir}/vmlinux" -o "${install_dir}/boot/vmlinux.strip"
 
-	if [[ -z ${target_copy} ]]; then
+	if [[ -z "${target_copy}" ]]; then
 		eval "make ${make_options} install"
 	else
 		for ((i = 0; i <= ${#target_copy[@]} - 1; i+=2)); do
-			cp --no-dereference ${build_dir}/${target_copy[i]} ${install_dir}/${target_copy[i+1]}
+			cp --no-dereference "${build_dir}/${target_copy[i]}" "${install_dir}/${target_copy[i+1]}"
 		done
 	fi
-	if [[ -n ${target_copy_opt} ]]; then
+
+	if [[ -n "${target_copy_opt}" ]]; then
 		for ((i = 0; i <= ${#target_copy_opt[@]} - 1; i+=2)); do
-			if [[ -f ${target_copy_opt[i]} ]]; then
-				cp --no-dereference ${build_dir}/${target_copy_opt[i]} ${install_dir}/${target_copy_opt[i+1]}
+			if [[ -f "${target_copy_opt[i]}" ]]; then
+				cp --no-dereference "${build_dir}/${target_copy_opt[i]}" "${install_dir}/${target_copy_opt[i+1]}"
 			fi
 		done
 	fi
@@ -174,7 +181,7 @@ script_name="${0##*/}"
 trap "on_exit 'failed.'" EXIT
 
 SCRIPTS_TOP=${SCRIPTS_TOP:-"$(cd "${BASH_SOURCE%/*}" && pwd)"}
-source ${SCRIPTS_TOP}/lib/util.sh
+source "${SCRIPTS_TOP}/lib/util.sh"
 
 targets="
 	amd64
@@ -209,20 +216,23 @@ cpus="$(cpu_count)"
 
 process_opts "${@}"
 
-if [[ -z "${build_dir}" ]]; then
+if [[ ${build_dir} ]]; then
+	build_dir="$(readlink -f "${build_dir}")"
+else
 	build_dir="$(pwd)/${target}-kernel-build"
 fi
 
-if [[ -z "${install_dir}" ]]; then
-	#install_dir="/target/${target}"
+if [[ ${install_dir} ]]; then
+	install_dir="$(readlink -f "${install_dir}")"
+else
 	install_dir="${build_dir%-*}-install"
 fi
 
-if [[ -z "${local_version}" ]]; then
+if [[ ! ${local_version} ]]; then
 	local_version="${kernel_src##*/}"
 fi
 
-if [[ -n "${usage}" ]]; then
+if [[ ${usage} ]]; then
 	usage
 	exit 0
 fi
@@ -301,7 +311,7 @@ ps3)
 	;;
 esac
 
-if [[ -n "${verbose}" ]]; then
+if [[ ${verbose} ]]; then
 	make_options_extra="V=1"
 fi
 
@@ -312,12 +322,12 @@ SECONDS=0
 
 export CCACHE_DIR=${CCACHE_DIR:-"${build_dir}.ccache"}
 
-mkdir -p ${build_dir}
-mkdir -p ${CCACHE_DIR}
+mkdir -p "${build_dir}"
+mkdir -p "${CCACHE_DIR}"
 
-cd ${kernel_src}
+cd "${kernel_src}"
 
-tmp_dir="$(mktemp --tmpdir --directory ${script_name}.XXXX)"
+tmp_dir="$(mktemp --tmpdir --directory "${script_name}.XXXX")"
 
 case "${op}" in
 all)
