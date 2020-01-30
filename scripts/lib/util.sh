@@ -424,6 +424,21 @@ run_shellcheck() {
 	${shellcheck} "${file}"
 }
 
+get_container_id() {
+	local cpuset="$(cat /proc/1/cpuset)"
+	local regex="^/docker/([[:xdigit:]]*)$"
+	local container_id
+
+	if [[ "${cpuset}" =~ ${regex} ]]; then
+		container_id="${BASH_REMATCH[1]}"
+		echo "${script_name}: INFO: Container ID '${container_id}'." >&2
+	else
+		echo "${script_name}: WARNING: Container ID not found." >&2
+	fi
+
+	echo "${container_id}"
+}
+
 if [[ ${PS4} == '+ ' ]]; then
 	if [[ ${JENKINS_URL} ]]; then
 		export PS4='+ [${STAGE_NAME}] \${BASH_SOURCE##*/}:\${LINENO}: '
