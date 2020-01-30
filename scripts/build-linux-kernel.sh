@@ -195,14 +195,14 @@ targets="
 	x86_64
 "
 ops="
-	all
-	build
+	all: fresh targets install_image install_modules
+	build: targets
 	defconfig
 	fresh
-	headers
-	install
+	headers: mrproper defconfig prepare
+	install: install_image install_modules
 	modules_install
-	rebuild
+	rebuild: clean targets
 	savedefconfig
 	targets
 	gconfig
